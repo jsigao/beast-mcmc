@@ -35,6 +35,7 @@ import dr.evolution.sequence.Sequences;
 import dr.evolution.sequence.UncertainSequence;
 import dr.evolution.util.Taxon;
 import dr.evolution.util.TaxonList;
+import dr.inference.model.Parameter;
 import dr.util.NumberFormatter;
 
 import java.io.File;
@@ -332,6 +333,10 @@ public class SimpleAlignment extends Sequences implements Alignment, dr.util.XHT
     // **************************************************************
     // PatternList IMPLEMENTATION
     // **************************************************************
+
+    public void setPatterns(Parameter siteAssignInd){
+        // Doesn't do anything yet
+    }
 
     /**
      * @return number of patterns

@@ -27,6 +27,7 @@ package dr.evolution.alignment;
 
 import dr.evolution.datatype.DataType;
 import dr.evolution.sequence.SequenceList;
+import dr.inference.model.Parameter;
 
 /**
  * interface for any alignment data.
@@ -135,6 +136,10 @@ public interface Alignment extends SequenceList, SiteList
 			for (int i = 0; i < count; i++)
 				weights[i] = 1.0;
 			return weights;
+		}
+
+		public void setPatterns(Parameter siteAssignInd){
+			// Doesn't do anything yet
 		}
 
 		/**

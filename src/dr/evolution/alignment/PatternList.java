@@ -28,6 +28,7 @@ package dr.evolution.alignment;
 import dr.evolution.datatype.DataType;
 import dr.evolution.util.TaxonList;
 import dr.util.Identifiable;
+import dr.inference.model.Parameter;
 
 /**
  * interface for any list of patterns with weights.
@@ -61,6 +62,8 @@ public interface PatternList extends TaxonList, Identifiable {
      * @return the site pattern at patternIndex
      */
     int[] getPattern(int patternIndex);
+
+    void setPatterns(Parameter siteAssignInd);
 
     /**
      * Gets the pattern as an array of state frequency vectors (one per sequence)

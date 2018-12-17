@@ -164,6 +164,10 @@ public abstract class AbstractOutbreak extends AbstractModel implements PatternL
         return out;
     }
 
+    public void setPatterns(Parameter siteAssignInd){
+        // Doesn't do anything yet
+    }
+
     @Override
     public double[][] getUncertainPattern(int patternIndex) {
         throw new UnsupportedOperationException("uncertain patterns not implemented yet");

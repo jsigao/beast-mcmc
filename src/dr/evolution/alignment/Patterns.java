@@ -28,6 +28,7 @@ package dr.evolution.alignment;
 import dr.evolution.datatype.DataType;
 import dr.evolution.util.Taxon;
 import dr.evolution.util.TaxonList;
+import dr.inference.model.Parameter;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -113,6 +114,7 @@ public class Patterns implements PatternList {
      * Constructor
      */
     public Patterns(SiteList siteList, int from, int to, int every, int subSet, int subSetCount) {
+        System.err.println("siteList.getSiteCount(): " + siteList.getSiteCount());
         addPatterns(siteList, from, to, every);
         subSetPatterns(subSet, subSetCount);
     }
@@ -159,6 +161,10 @@ public class Patterns implements PatternList {
 
             patternCount = newPatternCount;
         }
+    }
+
+    public void setPatterns(Parameter siteAssignInd){
+        // Doesn't do anything yet
     }
 
     /**

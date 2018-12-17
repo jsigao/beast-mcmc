@@ -50,7 +50,8 @@ public final class TreeDataLikelihood extends AbstractModelLikelihood implements
 
     public TreeDataLikelihood(DataLikelihoodDelegate likelihoodDelegate,
                               Tree treeModel,
-                              BranchRateModel branchRateModel) {
+                              BranchRateModel branchRateModel,
+                              Parameter siteAssignInd) {
 
         super("TreeDataLikelihood");  // change this to use a const once the parser exists
 
@@ -86,7 +87,18 @@ public final class TreeDataLikelihood extends AbstractModelLikelihood implements
 
         rateRescalingScheme = likelihoodDelegate.getRateRescalingScheme();
 
+        if(siteAssignInd != null){
+            this.siteAssignInd = siteAssignInd;
+            addVariable(siteAssignInd);
+        }
+
         hasInitialized = true;
+    }
+
+    public TreeDataLikelihood(DataLikelihoodDelegate likelihoodDelegate,
+                              Tree treeModel,
+                              BranchRateModel branchRateModel) {
+        this(likelihoodDelegate, treeModel, branchRateModel, null);
     }
 
     public final Tree getTree() {
@@ -187,11 +199,16 @@ public final class TreeDataLikelihood extends AbstractModelLikelihood implements
 //                }
             }
         } else if (model == likelihoodDelegate) {
-
-            if (index == -1) {
+            if(object == siteAssignInd){
+                System.err.println("object == siteAssignInd");
                 updateAllNodes();
-            } else {
-                updateNode(treeModel.getNode(index));
+                likelihoodKnown = false;
+            }else {
+                if (index == -1) {
+                    updateAllNodes();
+                } else {
+                    updateNode(treeModel.getNode(index));
+                }
             }
 
         } else if (model == branchRateModel) {
@@ -420,6 +437,8 @@ public final class TreeDataLikelihood extends AbstractModelLikelihood implements
      * the branch rate model
      */
     private final BranchRateModel branchRateModel;
+
+    private Parameter siteAssignInd;
 
     /**
      * TreeTrait helper

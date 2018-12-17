@@ -27,6 +27,7 @@ package dr.evolution.alignment;
 
 import dr.evolution.datatype.*;
 import dr.evolution.util.Taxon;
+import dr.inference.model.Parameter;
 
 import java.util.*;
 
@@ -132,6 +133,10 @@ public class PairedSitePatterns implements SiteList {
 	 */
 	public int getPatternCount() {
 		return getSiteCount();
+	}
+
+	public void setPatterns(Parameter siteAssignInd){
+		// Doesn't do anything yet
 	}
 
 	/**

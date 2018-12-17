@@ -32,10 +32,7 @@ import dr.evolution.datatype.DataType;
 import dr.evolution.datatype.Nucleotides;
 import dr.evolution.util.Taxon;
 import dr.evolution.util.TaxonList;
-import dr.inference.model.AbstractModel;
-import dr.inference.model.Model;
-import dr.inference.model.ModelListener;
-import dr.inference.model.Variable;
+import dr.inference.model.*;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -483,6 +480,10 @@ public class LineageSitePatterns extends AbstractModel implements SiteList, dr.u
      */
     public double[] getPatternWeights() {
         return weights;
+    }
+
+    public void setPatterns(Parameter siteAssignInd){
+        // Doesn't do anything yet
     }
 
     /**

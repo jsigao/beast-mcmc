@@ -37,6 +37,7 @@ import dr.evolution.alignment.PatternList;
 import dr.evolution.datatype.DataType;
 import dr.evolution.util.Taxon;
 import dr.evolution.util.TaxonList;
+import dr.inference.model.Parameter;
 import dr.oldevomodel.substmodel.SubstitutionModel;
 import dr.oldevomodel.treelikelihood.GeneralLikelihoodCore;
 import dr.oldevomodel.treelikelihood.LikelihoodCore;
@@ -519,6 +520,10 @@ public class HiddenLinkageModel extends TipStatesModel implements PatternList
 
 	public double[] getPatternWeights() {
 		return data.getAlignment().getPatternWeights();
+	}
+
+	public void setPatterns(Parameter siteAssignInd){
+		// Doesn't do anything yet
 	}
 
 	public int getStateCount() {

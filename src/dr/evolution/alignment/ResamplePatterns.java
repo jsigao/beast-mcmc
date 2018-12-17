@@ -30,6 +30,7 @@ import dr.evolution.datatype.Codons;
 import dr.evolution.datatype.DataType;
 import dr.evolution.datatype.Nucleotides;
 import dr.evolution.util.Taxon;
+import dr.inference.model.Parameter;
 
 import java.util.*;
 
@@ -134,6 +135,11 @@ public abstract class ResamplePatterns implements PatternList, dr.util.XHTMLable
 	 */
 	public double[] getPatternWeights() {
 		return weights;
+	}
+
+
+	public void setPatterns(Parameter siteAssignInd){
+		// Doesn't do anything yet
 	}
 
 	/**

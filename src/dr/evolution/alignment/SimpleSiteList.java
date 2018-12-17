@@ -28,6 +28,7 @@ package dr.evolution.alignment;
 import dr.evolution.datatype.*;
 import dr.evolution.util.Taxon;
 import dr.evolution.util.TaxonList;
+import dr.inference.model.Parameter;
 
 import java.util.List;
 import java.util.Iterator;
@@ -188,6 +189,10 @@ public class SimpleSiteList implements SiteList {
 			weights[i] = 1.0;
 		}
 		return weights;
+	}
+
+	public void setPatterns(Parameter siteAssignInd){
+		// Doesn't do anything yet
 	}
 
 	/**

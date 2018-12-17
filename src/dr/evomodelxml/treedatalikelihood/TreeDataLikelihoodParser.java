@@ -26,6 +26,7 @@
 package dr.evomodelxml.treedatalikelihood;
 
 import dr.evolution.alignment.PatternList;
+import dr.evolution.alignment.SitePatterns;
 import dr.evolution.util.Taxon;
 import dr.evomodel.branchmodel.BranchModel;
 import dr.evomodel.branchmodel.HomogeneousBranchModel;
@@ -38,12 +39,14 @@ import dr.evomodel.substmodel.SubstitutionModel;
 import dr.evomodel.tipstatesmodel.TipStatesModel;
 import dr.evomodel.tree.TreeModel;
 import dr.evomodel.treedatalikelihood.BeagleDataLikelihoodDelegate;
+import dr.evomodel.treedatalikelihood.BeagleDataLikelihoodDelegateNP;
 import dr.evomodel.treedatalikelihood.DataLikelihoodDelegate;
 import dr.evomodel.treedatalikelihood.MultiPartitionDataLikelihoodDelegate;
 import dr.evomodel.treedatalikelihood.TreeDataLikelihood;
 import dr.evomodel.treelikelihood.PartialsRescalingScheme;
 import dr.inference.model.CompoundLikelihood;
 import dr.inference.model.Likelihood;
+import dr.inference.model.Parameter;
 import dr.xml.*;
 
 import java.util.ArrayList;
@@ -66,6 +69,8 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
     public static final String INSTANCE_COUNT = "instanceCount";
     public static final String SCALING_SCHEME = "scalingScheme";
     public static final String DELAY_SCALING = "delayScaling";
+    public static final String FOR_NP = "forNP";
+    public static final String SITE_ASSIGN_IND = "siteAssignInd";
 
     public static final String PARTITION = "partition";
 
@@ -81,7 +86,9 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
                                                   TipStatesModel tipStatesModel,
                                                   boolean useAmbiguities,
                                                   PartialsRescalingScheme scalingScheme,
-                                                  boolean delayRescalingUntilUnderflow) throws XMLParseException {
+                                                  boolean delayRescalingUntilUnderflow,
+                                                  Parameter siteAssignInd,
+                                                  List<SitePatterns> sitePatternLists) throws XMLParseException {
 
         if (tipStatesModel != null) {
             throw new XMLParseException("Tip State Error models are not supported yet with TreeDataLikelihood");
@@ -146,7 +153,8 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
                         siteRateModels,
                         useAmbiguities,
                         scalingScheme,
-                        delayRescalingUntilUnderflow);
+                        delayRescalingUntilUnderflow,
+                        siteAssignInd);
 
                 return new TreeDataLikelihood(
                         dataLikelihoodDelegate,
@@ -166,23 +174,46 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
             System.setProperty(BEAGLE_THREAD_COUNT, Integer.toString(threadCount / patternLists.size()));
         }
 
-        for (int i = 0; i < patternLists.size(); i++) {
+        if(siteAssignInd == null) {
+            for (int i = 0; i < patternLists.size(); i++) {
 
-            DataLikelihoodDelegate dataLikelihoodDelegate = new BeagleDataLikelihoodDelegate(
-                    treeModel,
-                    patternLists.get(i),
-                    branchModels.get(i),
-                    siteRateModels.get(i),
-                    useAmbiguities,
-                    scalingScheme,
-                    delayRescalingUntilUnderflow);
+                DataLikelihoodDelegate dataLikelihoodDelegate = new BeagleDataLikelihoodDelegate(
+                        treeModel,
+                        patternLists.get(i),
+                        branchModels.get(i),
+                        siteRateModels.get(i),
+                        useAmbiguities,
+                        scalingScheme,
+                        delayRescalingUntilUnderflow);
 
-            treeDataLikelihoods.add(
-                    new TreeDataLikelihood(
-                            dataLikelihoodDelegate,
-                            treeModel,
-                            branchRateModel));
+                treeDataLikelihoods.add(
+                        new TreeDataLikelihood(
+                                dataLikelihoodDelegate,
+                                treeModel,
+                                branchRateModel));
 
+            }
+        }else{
+            for (int i = 0; i < patternLists.size(); i++) {
+
+                DataLikelihoodDelegate dataLikelihoodDelegate = new BeagleDataLikelihoodDelegateNP(
+                        treeModel,
+                        sitePatternLists.get(i),
+                        branchModels.get(i),
+                        siteRateModels.get(i),
+                        useAmbiguities,
+                        scalingScheme,
+                        delayRescalingUntilUnderflow,
+                        siteAssignInd);
+
+                treeDataLikelihoods.add(
+                        new TreeDataLikelihood(
+                                dataLikelihoodDelegate,
+                                treeModel,
+                                branchRateModel,
+                                siteAssignInd));
+
+            }
         }
 
         if (treeDataLikelihoods.size() == 1) {
@@ -196,6 +227,8 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
     public Object parseXMLObject(XMLObject xo) throws XMLParseException {
 
         boolean useAmbiguities = xo.getAttribute(USE_AMBIGUITIES, false);
+
+        boolean forNP = xo.getAttribute(FOR_NP, false);
 
         // TreeDataLikelihood doesn't currently support Instances defined from the command line
 //        int instanceCount = xo.getAttribute(INSTANCE_COUNT, 1);
@@ -211,6 +244,7 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
         List<PatternList> patternLists = new ArrayList<PatternList>();
         List<SiteRateModel> siteRateModels = new ArrayList<SiteRateModel>();
         List<BranchModel> branchModels = new ArrayList<BranchModel>();
+        List<SitePatterns> sitePatternLists = new ArrayList<SitePatterns>();
 
         boolean hasSinglePartition = false;
 
@@ -249,6 +283,12 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
                 XMLObject cxo = (XMLObject)xo.getChild(i);
                 patternList = (PatternList) cxo.getChild(PatternList.class);
                 patternLists.add(patternList);
+
+                SitePatterns sitePatternList = (SitePatterns) cxo.getChild(SitePatterns.class);
+                if(sitePatternList != null){
+                    System.err.println("sitePatternList not null");
+                    sitePatternLists.add(sitePatternList);
+                }
 
                 GammaSiteRateModel siteRateModel = (GammaSiteRateModel) cxo.getChild(GammaSiteRateModel.class);
                 siteRateModels.add(siteRateModel);
@@ -306,6 +346,12 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
             throw new XMLParseException("BEAGLE_INSTANCES option cannot be used with a TipStateModel (i.e., a sequence error model).");
         }
 
+        Parameter indicators = null;
+
+        if (xo.hasChildNamed(SITE_ASSIGN_IND)) {
+            indicators = (Parameter) xo.getElementFirstChild(SITE_ASSIGN_IND);
+        }
+
         return createTreeDataLikelihood(
                 patternLists,
                 branchModels,
@@ -315,7 +361,9 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
                 null,
                 useAmbiguities,
                 scalingScheme,
-                delayScaling);
+                delayScaling,
+                indicators,
+                sitePatternLists);
     }
 
     //************************************************************************
@@ -333,7 +381,7 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
     public static final XMLSyntaxRule[] rules = {
             AttributeRule.newBooleanRule(USE_AMBIGUITIES, true),
             AttributeRule.newStringRule(SCALING_SCHEME,true),
-
+            AttributeRule.newBooleanRule(FOR_NP, true),
             // really it should be this set of elements or the PARTITION elements
             new OrRule(new AndRule(new XMLSyntaxRule[]{
                     new ElementRule(PatternList.class, true),
@@ -350,7 +398,9 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
 
             new ElementRule(BranchRateModel.class, true),
             new ElementRule(TreeModel.class),
-            new ElementRule(TipStatesModel.class, true)
+            new ElementRule(TipStatesModel.class, true),
+            new ElementRule(SITE_ASSIGN_IND,
+                    new XMLSyntaxRule[]{new ElementRule(Parameter.class)}, true)
     };
 
     public XMLSyntaxRule[] getSyntaxRules() {
