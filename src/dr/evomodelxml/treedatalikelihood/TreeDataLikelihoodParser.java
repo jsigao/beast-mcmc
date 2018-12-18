@@ -153,8 +153,7 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
                         siteRateModels,
                         useAmbiguities,
                         scalingScheme,
-                        delayRescalingUntilUnderflow,
-                        siteAssignInd);
+                        delayRescalingUntilUnderflow);
 
                 return new TreeDataLikelihood(
                         dataLikelihoodDelegate,
