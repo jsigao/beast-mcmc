@@ -176,7 +176,7 @@ public class SitePatterns implements SiteList, dr.util.XHTMLable {
     public SitePatterns(SiteList siteList, Parameter siteAssignInd, Parameter partitionCat) {
         this.strip = false;
         this.siteList = siteList;
-       // this.siteAssignInd = siteAssignInd;
+        //this.siteAssignInd = siteAssignInd;
         this.partitionCat = partitionCat;
         //setPatterns(siteList, siteAssignInd, partitionCat);
         setPatterns(siteAssignInd);
@@ -346,6 +346,8 @@ public class SitePatterns implements SiteList, dr.util.XHTMLable {
         //siteCount = ((to - from) / every) + 1;
         siteCount = siteList.getSiteCount();
 
+        System.err.println("In SitePatterns siteList.getSiteCount(): " + siteCount);
+
         patternCount = 0;
 
         patterns = new int[siteCount][];
@@ -367,6 +369,9 @@ public class SitePatterns implements SiteList, dr.util.XHTMLable {
         // try for(int i : siteAssignInd.getParameterValue(i)==partitionCat.getParameterValue(0)){
         // Don't want to iterate through all sites more than once
         for (int i = 0; i < siteCount; i++) {
+            System.err.println("partitionCat.getParameterValue(0): " + partitionCat.getParameterValue(0));
+            System.err.println("siteAssignInd.getParameterValue(i): " + siteAssignInd.getParameterValue(i) + " i: " + i);
+
             if(siteAssignInd.getParameterValue(i)==partitionCat.getParameterValue(0)) {
                 int[] pattern = siteList.getSitePattern(i);
                 double[][] probs = null;

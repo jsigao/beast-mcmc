@@ -69,8 +69,9 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
     public static final String INSTANCE_COUNT = "instanceCount";
     public static final String SCALING_SCHEME = "scalingScheme";
     public static final String DELAY_SCALING = "delayScaling";
-    public static final String FOR_NP = "forNP";
     public static final String SITE_ASSIGN_IND = "siteAssignInd";
+    public static final String PARTITION_CAT = "polyaPartitionCategory";
+    public static final String POLYA_SITE_MODELS = "polyaSiteModels";
 
     public static final String PARTITION = "partition";
 
@@ -88,7 +89,9 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
                                                   PartialsRescalingScheme scalingScheme,
                                                   boolean delayRescalingUntilUnderflow,
                                                   Parameter siteAssignInd,
-                                                  List<SitePatterns> sitePatternLists) throws XMLParseException {
+                                                  List<Parameter> polyaPartitionCategories,
+                                                  List<SiteRateModel> polyaSiteRateModels,
+                                                  List<BranchModel> polyaBranchModels) throws XMLParseException {
 
         if (tipStatesModel != null) {
             throw new XMLParseException("Tip State Error models are not supported yet with TreeDataLikelihood");
@@ -108,6 +111,9 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
         boolean useBeagle3MultiPartition = false;
 
         if (patternLists.size() > 1) {
+
+            System.err.println("patternLists.size() is greater than one!");
+
             // will currently recommend true if using GPU, CUDA or OpenCL.
             useBeagle3MultiPartition = MultiPartitionDataLikelihoodDelegate.IS_MULTI_PARTITION_RECOMMENDED();
     
@@ -120,6 +126,14 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
                 useBeagle3MultiPartition = Boolean.parseBoolean(System.getProperty("beagle.multipartition.extensions"));
             }
         }
+
+        if(useBeagle3MultiPartition){
+            System.err.println("useBeagle3MultiPartition is true");
+        }else{
+            System.err.println("useBeagle3MultiPartition is false");
+        }
+
+        useBeagle3MultiPartition = true;
 
         boolean useJava = Boolean.parseBoolean(System.getProperty("java.only", "false"));
 
@@ -160,6 +174,7 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
                         treeModel,
                         branchRateModel);
             } catch (DataLikelihoodDelegate.DelegateTypeException dte) {
+                System.err.println("catch delegatetypexception");
                 useBeagle3MultiPartition = false;
             }
 
@@ -193,24 +208,30 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
 
             }
         }else{
-            for (int i = 0; i < patternLists.size(); i++) {
+            for (int i = 0; i < polyaSiteRateModels.size(); i++) {
+
+                System.err.println("patternLists.size(): " + patternLists.size());
+                System.err.println("polyaBranchModels.size(): " + polyaBranchModels.size());
+                System.err.println("polyaSiteRateModels.size(): " + polyaSiteRateModels.size());
+                System.err.println("polyaPartitionCategories.size(): " + polyaPartitionCategories.size());
 
                 DataLikelihoodDelegate dataLikelihoodDelegate = new BeagleDataLikelihoodDelegateNP(
                         treeModel,
-                        sitePatternLists.get(i),
-                        branchModels.get(i),
-                        siteRateModels.get(i),
+                        //patternLists.get(i),
+                        patternLists.get(0),
+                        polyaBranchModels.get(i),
+                        polyaSiteRateModels.get(i),
                         useAmbiguities,
                         scalingScheme,
                         delayRescalingUntilUnderflow,
-                        siteAssignInd);
+                        siteAssignInd,
+                        polyaPartitionCategories.get(i));
 
                 treeDataLikelihoods.add(
                         new TreeDataLikelihood(
                                 dataLikelihoodDelegate,
                                 treeModel,
-                                branchRateModel,
-                                siteAssignInd));
+                                branchRateModel));
 
             }
         }
@@ -227,8 +248,6 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
 
         boolean useAmbiguities = xo.getAttribute(USE_AMBIGUITIES, false);
 
-        boolean forNP = xo.getAttribute(FOR_NP, false);
-
         // TreeDataLikelihood doesn't currently support Instances defined from the command line
 //        int instanceCount = xo.getAttribute(INSTANCE_COUNT, 1);
 //        if (instanceCount < 1) {
@@ -243,7 +262,12 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
         List<PatternList> patternLists = new ArrayList<PatternList>();
         List<SiteRateModel> siteRateModels = new ArrayList<SiteRateModel>();
         List<BranchModel> branchModels = new ArrayList<BranchModel>();
-        List<SitePatterns> sitePatternLists = new ArrayList<SitePatterns>();
+        List<BranchModel> polyaBranchModels = new ArrayList<BranchModel>();
+        List<Parameter> polyaPartitionCategories = new ArrayList<Parameter>();
+        // Note: will need more than one list of polyaSiteRateModels for multiple physical partitions
+        // extend later
+        List<SiteRateModel> polyaSiteRateModels = new ArrayList<SiteRateModel>();
+        Parameter indicators = null;
 
         boolean hasSinglePartition = false;
 
@@ -283,11 +307,25 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
                 patternList = (PatternList) cxo.getChild(PatternList.class);
                 patternLists.add(patternList);
 
-                SitePatterns sitePatternList = (SitePatterns) cxo.getChild(SitePatterns.class);
-                if(sitePatternList != null){
-                    System.err.println("sitePatternList not null");
-                    sitePatternLists.add(sitePatternList);
+                indicators = (Parameter) cxo.getChild(Parameter.class);
+
+                /*
+                if(cxo.hasChildNamed(POLYA_SITE_MODELS)){
+
+                    System.err.println("hasChildNamed polyaSiteModels");
+
+                    XMLObject dxo = cxo.getChild(POLYA_SITE_MODELS);
+
+                    for(int l = 0; l < dxo.getChildCount(); l++){
+                        GammaSiteRateModel polyaSiteRateModel = (GammaSiteRateModel) dxo.getChild(l);
+                        polyaSiteRateModels.add(polyaSiteRateModel);
+                        //Parameter category = null;
+                        //category.setParameterValue(0,l);
+                        Parameter category = new Parameter.Default(PARTITION_CAT, l);
+                        polyaPartitionCategories.add(category);
+                    }
                 }
+                */
 
                 GammaSiteRateModel siteRateModel = (GammaSiteRateModel) cxo.getChild(GammaSiteRateModel.class);
                 siteRateModels.add(siteRateModel);
@@ -328,6 +366,29 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
 
         TipStatesModel tipStatesModel = (TipStatesModel) xo.getChild(TipStatesModel.class);
 
+
+        if(xo.hasChildNamed(POLYA_SITE_MODELS)){
+
+            System.err.println("hasChildNamed polyaSiteModels");
+
+            FrequencyModel polyaFrequencyModel = (FrequencyModel) xo.getChild(BranchModel.class);
+
+            XMLObject cxo = xo.getChild(POLYA_SITE_MODELS);
+
+            for(int l = 0; l < cxo.getChildCount(); l++){
+                GammaSiteRateModel polyaSiteRateModel = (GammaSiteRateModel) cxo.getChild(l);
+                polyaSiteRateModels.add(polyaSiteRateModel);
+                //Parameter category = null;
+                //category.setParameterValue(0,l);
+                Parameter category = new Parameter.Default(1);
+                category.setParameterValue(0,l);
+                polyaPartitionCategories.add(category);
+
+                BranchModel polyaBranchModel = new HomogeneousBranchModel(polyaSiteRateModel.getSubstitutionModel(), polyaFrequencyModel);
+                polyaBranchModels.add(polyaBranchModel);
+            }
+        }
+
         PartialsRescalingScheme scalingScheme = PartialsRescalingScheme.DEFAULT;
         boolean delayScaling = true;
         if (xo.hasAttribute(SCALING_SCHEME)) {
@@ -345,12 +406,6 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
             throw new XMLParseException("BEAGLE_INSTANCES option cannot be used with a TipStateModel (i.e., a sequence error model).");
         }
 
-        Parameter indicators = null;
-
-        if (xo.hasChildNamed(SITE_ASSIGN_IND)) {
-            indicators = (Parameter) xo.getElementFirstChild(SITE_ASSIGN_IND);
-        }
-
         return createTreeDataLikelihood(
                 patternLists,
                 branchModels,
@@ -362,7 +417,9 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
                 scalingScheme,
                 delayScaling,
                 indicators,
-                sitePatternLists);
+                polyaPartitionCategories,
+                polyaSiteRateModels,
+                polyaBranchModels);
     }
 
     //************************************************************************
@@ -380,7 +437,6 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
     public static final XMLSyntaxRule[] rules = {
             AttributeRule.newBooleanRule(USE_AMBIGUITIES, true),
             AttributeRule.newStringRule(SCALING_SCHEME,true),
-            AttributeRule.newBooleanRule(FOR_NP, true),
             // really it should be this set of elements or the PARTITION elements
             new OrRule(new AndRule(new XMLSyntaxRule[]{
                     new ElementRule(PatternList.class, true),
@@ -390,16 +446,20 @@ public class TreeDataLikelihoodParser extends AbstractXMLObjectParser {
                     ,
                     new ElementRule(PARTITION, new XMLSyntaxRule[] {
                             new ElementRule(PatternList.class),
-                            new ElementRule(SiteRateModel.class),
+                            new ElementRule(SiteRateModel.class,true), // change this back to not optional
                             new ElementRule(FrequencyModel.class, true),
-                            new ElementRule(BranchModel.class, true)
+                            new ElementRule(BranchModel.class, true),
+                            new ElementRule(Parameter.class, true),
+                         //   new ElementRule(POLYA_SITE_MODELS, new XMLSyntaxRule[]{
+                         //           new ElementRule(SiteRateModel.class, 1, Integer.MAX_VALUE),
+                         //   }, true)
                     }, 1, Integer.MAX_VALUE)),
-
+            new ElementRule(POLYA_SITE_MODELS, new XMLSyntaxRule[]{
+                new ElementRule(SiteRateModel.class, 1, Integer.MAX_VALUE)
+            },true),
             new ElementRule(BranchRateModel.class, true),
             new ElementRule(TreeModel.class),
-            new ElementRule(TipStatesModel.class, true),
-            new ElementRule(SITE_ASSIGN_IND,
-                    new XMLSyntaxRule[]{new ElementRule(Parameter.class)}, true)
+            new ElementRule(TipStatesModel.class, true)
     };
 
     public XMLSyntaxRule[] getSyntaxRules() {
