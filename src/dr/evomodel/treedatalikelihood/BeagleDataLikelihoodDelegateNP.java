@@ -88,7 +88,7 @@ public class BeagleDataLikelihoodDelegateNP extends AbstractModel implements Dat
                                           Parameter siteAssignInd,
                                           Parameter polyaPartitionCat) {
 
-        super("BeagleDataLikelihoodDelegate");
+        super("BeagleDataLikelihoodDelegate " + polyaPartitionCat.getParameterValue(0));
         final Logger logger = Logger.getLogger("dr.evomodel");
 
         logger.info("\nUsing BEAGLE DataLikelihood Delegate");
@@ -638,6 +638,11 @@ public class BeagleDataLikelihoodDelegateNP extends AbstractModel implements Dat
     @Override
     public double calculateLikelihood(List<BranchOperation> branchOperations, List<NodeOperation> nodeOperations, int rootNodeNumber) throws LikelihoodException {
 
+        System.out.println("calculate likelihood for " + this.getModelName());
+
+        setPatternWeightsInd(siteAssignInd);
+        beagle.setPatternWeights(patternWeights);
+
         //recomputeScaleFactors = false;
         if (DEBUG) {
             System.out.println("Partition: " + this.getModelName());
@@ -902,12 +907,17 @@ public class BeagleDataLikelihoodDelegateNP extends AbstractModel implements Dat
     }
 
     private void setPatternWeightsInd(Parameter siteAssignInd){
-        for(int i = 0; i < patternWeights.length; i++){
-            if(siteAssignInd.getParameterValue(i) == polyaPartitionCat.getParameterValue(0)){
-                patternWeights[i] = 1.0;
-            }else{
-                patternWeights[i] = 0.0;
+        synchronized (siteAssignInd) {
+            System.out.println(this.getModelName());
+            for (int i = 0; i < patternWeights.length; i++) {
+                if (siteAssignInd.getParameterValue(i) == polyaPartitionCat.getParameterValue(0)) {
+                    patternWeights[i] = 1.0;
+                } else {
+                    patternWeights[i] = 0.0;
+                }
+                System.out.print(patternWeights[i] + " ");
             }
+            System.out.println();
         }
     }
 
@@ -932,7 +942,11 @@ public class BeagleDataLikelihoodDelegateNP extends AbstractModel implements Dat
     @Override
     protected void handleVariableChangedEvent(Variable variable, int index, Parameter.ChangeType type) {
         if(variable == siteAssignInd) {
-            System.err.println("siteAssignInd changed");
+            System.out.println("siteAssignInd changed in " + this.getModelName());
+            for (int i = 0; i < siteAssignInd.getDimension(); i++) {
+                System.out.print(siteAssignInd.getParameterValue(i) + " ");
+            }
+            System.out.println();
             setPatternWeightsInd(siteAssignInd);
             beagle.setPatternWeights(patternWeights);
         }
@@ -943,7 +957,13 @@ public class BeagleDataLikelihoodDelegateNP extends AbstractModel implements Dat
      */
     @Override
     public void storeState() {
+
         System.arraycopy(patternWeights, 0, storedPatternWeights, 0, patternWeights.length);
+        System.out.println(this.getModelName() + ": ");
+        for (int i = 0; i < patternWeights.length; i++) {
+            System.out.print(patternWeights[i] + " ");
+        }
+        System.out.println();
 
         partialBufferHelper.storeState();
         evolutionaryProcessDelegate.storeState();
@@ -963,14 +983,23 @@ public class BeagleDataLikelihoodDelegateNP extends AbstractModel implements Dat
      */
     @Override
     public void restoreState() {
+
         updateSiteModel = true; // this is required to upload the categoryRates to BEAGLE after the restore
+        updateSubstitutionModel = true;
 
         // Swap pointers
-        //double[] temp = patternWeights;
-        //patternWeights = storedPatternWeights;
-        //storedPatternWeights = temp;
+        double[] temp = patternWeights;
+        patternWeights = storedPatternWeights;
+        storedPatternWeights = temp;
         //beagle.setPatternWeights(patternWeights);
-        makeDirty();
+        //makeDirty();
+
+        /*beagle.setPatternWeights(patternWeights);
+        System.out.println(this.getModelName() + ": ");
+        for (int i = 0; i < patternWeights.length; i++) {
+            System.out.print(patternWeights[i] + " ");
+        }
+        System.out.println();*/
 
         partialBufferHelper.restoreState();
         evolutionaryProcessDelegate.restoreState();
