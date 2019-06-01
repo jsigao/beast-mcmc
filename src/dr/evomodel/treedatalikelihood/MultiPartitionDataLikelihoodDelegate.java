@@ -1235,6 +1235,12 @@ public class MultiPartitionDataLikelihoodDelegate extends AbstractModel implemen
         return logL;
     }
 
+    public double[] getSiteLogLikelihoods(){
+        double[] patternLogLikelihoods = new double[totalPatternCount];
+        beagle.getSiteLogLikelihoods(patternLogLikelihoods);
+        return patternLogLikelihoods;
+    }
+
     /*public void getPartials(int number, double[] partials) {
         int cumulativeBufferIndex = Beagle.NONE;
         // No need to rescale partials

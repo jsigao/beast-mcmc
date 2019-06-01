@@ -25,6 +25,7 @@
 
 package dr.evomodel.branchmodel.lineagespecific;
 
+import dr.evomodel.treedatalikelihood.TreeDataLikelihood;
 import dr.inference.model.CompoundParameter;
 import dr.inference.model.Likelihood;
 import dr.inference.model.Parameter;
@@ -38,41 +39,44 @@ import dr.xml.XMLSyntaxRule;
 
 public class DirichletProcessOperatorParser extends AbstractXMLObjectParser {
 
-	public static final String DIRICHLET_PROCESS_OPERATOR = "dpOperator";
+	public static final String DIRICHLET_PROCESS_OPERATOR= "dpOperator";
 	public static final String DATA_LOG_LIKELIHOOD = "dataLogLikelihood";
 	public static final String MH_STEPS = "mhSteps";
-	
+
 	@Override
 	public Object parseXMLObject(XMLObject xo) throws XMLParseException {
 
 		DirichletProcessPrior dpp = (DirichletProcessPrior) xo.getChild(DirichletProcessPrior.class);
-		Likelihood likelihood = (Likelihood) xo .getElementFirstChild(DATA_LOG_LIKELIHOOD);
-		Parameter categoriesParameter = (Parameter) xo.getElementFirstChild(  DirichletProcessPriorParser.CATEGORIES);
-		
+
+		TreeDataLikelihood tdl = (TreeDataLikelihood) xo.getElementFirstChild(DATA_LOG_LIKELIHOOD);
+
+		// Likelihood likelihood = (Likelihood) xo .getElementFirstChild(DATA_LOG_LIKELIHOOD);
+		Parameter categoriesParameter = (Parameter) xo.getElementFirstChild(DirichletProcessPriorParser.CATEGORIES);
+
 		CountableRealizationsParameter allParameters = (CountableRealizationsParameter) xo.getChild(CountableRealizationsParameter.class);
 		CompoundParameter uniquelyRealizedParameters = (CompoundParameter) xo.getChild(CompoundParameter.class);
-		
+
 		int M = xo.getIntegerAttribute(MH_STEPS);
 		final double weight = xo.getDoubleAttribute(MCMCOperator.WEIGHT);
 
-		return new DirichletProcessOperator(dpp, // 
+		return new DirichletProcessOperator(dpp, //
 				categoriesParameter, //
 				uniquelyRealizedParameters, //
 				allParameters, //
-				likelihood, //
+				tdl, //
 				M, //
 				weight //
-				);
-		
+		);
+
 	}// END: parseXMLObject
 
 	@Override
 	public XMLSyntaxRule[] getSyntaxRules() {
 		return new XMLSyntaxRule[] {
-		new ElementRule(DirichletProcessPrior.class, false),
-		new ElementRule(CompoundParameter.class, false), //
-		new ElementRule(CountableRealizationsParameter.class, false), //
-		AttributeRule.newDoubleRule(MCMCOperator.WEIGHT) //
+				new ElementRule(DirichletProcessPrior.class, false),
+				new ElementRule(CompoundParameter.class, false), //
+				new ElementRule(CountableRealizationsParameter.class, false), //
+				AttributeRule.newDoubleRule(MCMCOperator.WEIGHT) //
 		};
 
 	}// END: getSyntaxRules

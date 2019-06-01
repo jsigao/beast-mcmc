@@ -188,7 +188,7 @@ public final class TreeDataLikelihood extends AbstractModelLikelihood implements
             }
         } else if (model == likelihoodDelegate) {
             if(object instanceof Parameter){
-                System.err.println("object == siteAssignInd");
+                //System.err.println("object == siteAssignInd");
                 updateAllNodes();
                 likelihoodKnown = false;
             }else {

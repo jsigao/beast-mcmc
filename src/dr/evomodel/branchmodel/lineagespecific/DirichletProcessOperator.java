@@ -25,6 +25,7 @@
 
 package dr.evomodel.branchmodel.lineagespecific;
 
+import dr.evomodel.treedatalikelihood.TreeDataLikelihood;
 import org.apache.commons.math.MathException;
 
 import dr.inference.model.CompoundLikelihood;
@@ -49,18 +50,19 @@ public class DirichletProcessOperator extends SimpleMCMCOperator implements
 	private int mhSteps;
 
 	private Parameter categoriesParameter;
-	 private CountableRealizationsParameter allParameters;
+	private CountableRealizationsParameter allParameters;
 	private Parameter uniqueParameters;
 
 	private CompoundLikelihood likelihood;
+	private TreeDataLikelihood tdl;
 
-	public DirichletProcessOperator(DirichletProcessPrior dpp, //
-			Parameter categoriesParameter, //
-			Parameter uniqueParameters, //
-			 CountableRealizationsParameter allParameters,
-			Likelihood likelihood, //
-			int mhSteps, //
-			double weight//
+	public DirichletProcessOperator(DirichletProcessPrior dpp,
+									   Parameter categoriesParameter,
+									   Parameter uniqueParameters,
+									   CountableRealizationsParameter allParameters,
+									   TreeDataLikelihood tdl,
+									   int mhSteps,
+									   double weight
 	) {
 
 		this.dpp = dpp;
@@ -69,13 +71,13 @@ public class DirichletProcessOperator extends SimpleMCMCOperator implements
 		this.realizationCount = categoriesParameter.getDimension();
 
 		this.categoriesParameter = categoriesParameter;
-		 this.allParameters = allParameters;
+		this.allParameters = allParameters;
 		this.uniqueParameters = uniqueParameters;
-		this.likelihood = (CompoundLikelihood) likelihood;
-//		this.likelihood =  likelihood;
-		
+		// this.likelihood = (CompoundLikelihood) likelihood;
+		this.tdl = tdl;
+
 		this.mhSteps = mhSteps;
-		
+
 		setWeight(weight);
 
 	}// END: Constructor
@@ -92,10 +94,7 @@ public class DirichletProcessOperator extends SimpleMCMCOperator implements
 	public double doOperation() {
 
 		try {
-
-//			doOperate();
 			doOp();
-
 		} catch (MathException e) {
 			e.printStackTrace();
 		}// END: try-catch block
@@ -106,7 +105,9 @@ public class DirichletProcessOperator extends SimpleMCMCOperator implements
 	private void doOp() throws MathException {
 		
 		for (int index = 0; index < realizationCount; index++) {
-		
+
+			int indexWithPartitionOffset = realizationCount*(int) categoriesParameter.getParameterValue(index) + index;
+
 			int[] occupancy = new int[uniqueRealizationCount];
 			for (int i = 0; i < realizationCount; i++) {
 				if (i != index) {
@@ -115,114 +116,131 @@ public class DirichletProcessOperator extends SimpleMCMCOperator implements
 				}// END: i check
 			}// END: i loop
 
-			
-	        double[] existingValues = new double[uniqueRealizationCount];
-	        int counter = 0;
-	        int singletonIndex = -1;
-	        for(int i = 0; i < uniqueRealizationCount;i++){
-	            if(occupancy[i] > 0) {
-	            	
-	                occupancy[counter] = occupancy[i];
-	                existingValues[counter++] = dpp.getUniqueParameter(i) .getParameterValue(0);
 
-	            } else {
-	            
-	            	singletonIndex = i;
+			double[] existingValues = new double[uniqueRealizationCount];
+			int counter = 0;
+			int singletonIndex = -1;
+			for(int i = 0; i < uniqueRealizationCount;i++){
+				if(occupancy[i] > 0) {
 
-	            }//END: occupancy check
-	            
-	        }//END: i loop
-			
-			
+					occupancy[counter] = occupancy[i];
+					existingValues[counter++] = dpp.getUniqueParameter(i) .getParameterValue(0);
+
+				} else {
+
+					singletonIndex = i;
+
+				}//END: occupancy check
+
+			}//END: i loop
+
+
 			// Propose new value(s)
 			double[] baseProposals = new double[realizationCount];
 			for (int i = 0; i < baseProposals.length; i++) {
-				
-				baseProposals[i] = dpp.baseModel.nextRandom()[0];
-				
-			}
-			
-	        // If a singleton
-            if(singletonIndex > -1) {
-            	
-                baseProposals[0] = uniqueParameters.getParameterValue(singletonIndex);
 
-            }
+				baseProposals[i] = dpp.baseModel.nextRandom()[0];
+
+			}
+
+			// If a singleton
+			if(singletonIndex > -1) {
+
+				baseProposals[0] = uniqueParameters.getParameterValue(singletonIndex);
+
+			}
 
 			double[] logClusterProbs = new double[uniqueRealizationCount];
-            
-            // draw existing
-            int i;
-            for(i = 0; i < counter; i++) {
-            
-            	  logClusterProbs[i] = Math.log(occupancy[i] / (realizationCount - 1 + intensity));
-            	  
-            	  double value =  allParameters.getParameterValue(index);
-            	  double candidate = existingValues[i];
-            	  allParameters.setParameterValue(index, candidate);
-				  likelihood.makeDirty();
-            	  
-            	  logClusterProbs[i] = logClusterProbs[i] + likelihood.getLikelihood(index) .getLogLikelihood();
-//				  logClusterProbs[i] = logClusterProbs[i] + likelihood .getLogLikelihood();
-				  
-//            	  System.out.println(likelihood.getLikelihood(index) .getLogLikelihood() + " " + likelihood .getLogLikelihood());
-            	  
-            	  allParameters.setParameterValue(index, value);
-            	  likelihood.makeDirty();
-            	  
-            }
-            
-            // draw new
-            for(; i < logClusterProbs.length; i++){
 
-            	logClusterProbs[i] = Math.log((intensity) / (realizationCount - 1 + intensity)); 
+			// draw existing
+			int i;
+			for(i = 0; i < counter; i++) {
+
+				logClusterProbs[i] = Math.log(occupancy[i] / (realizationCount - 1 + intensity));
+
+				double value =  allParameters.getParameterValue(index);
+				double candidate = existingValues[i];
+				allParameters.setParameterValue(index, candidate);
+
+				tdl.makeDirty();
+				// likelihood.makeDirty();
+
+				// check if this is inefficient
+				logClusterProbs[i] = logClusterProbs[i] + tdl.getDataLikelihoodDelegate().getSiteLogLikelihoods()[indexWithPartitionOffset];
+
+				//logClusterProbs[i] = logClusterProbs[i] + likelihood.getLikelihood(index) .getLogLikelihood();
+//				  logClusterProbs[i] = logClusterProbs[i] + likelihood .getLogLikelihood();
+
+//            	  System.out.println(likelihood.getLikelihood(index) .getLogLikelihood() + " " + likelihood .getLogLikelihood());
+
+				allParameters.setParameterValue(index, value);
+				//likelihood.makeDirty();
+				tdl.makeDirty();
+
+                /*
+                System.err.println("allParameters.getParameterValue(0):" + allParameters.getParameterValue(0));
+                System.err.println("allParameters.getParameterValue(10):" + allParameters.getParameterValue(10));
+                System.err.println("realizationCount: " + realizationCount);
+                System.err.println("uniqueRealizationCount: " + uniqueRealizationCount);
+                System.err.println("uniqueParameters.getParameterValue(0):" + uniqueParameters.getParameterValue(0));
+                System.err.println("uniqueParameters.getParameterValue(10):" + uniqueParameters.getParameterValue(1));
+                */
+			}
+
+			// draw new
+			for(; i < logClusterProbs.length; i++){
+
+				logClusterProbs[i] = Math.log((intensity) / (realizationCount - 1 + intensity));
 //            	logClusterProbs[i] = Math.log(intensity / uniqueRealizationCount / (realizationCount - 1 + intensity));
-            	
-            	  double value =  allParameters.getParameterValue(index);
-            	 double candidate = baseProposals[i - counter];
-            	 allParameters.setParameterValue(index, candidate);
- 				 likelihood.makeDirty();
- 				 
-            	 logClusterProbs[i] = logClusterProbs[i] + likelihood.getLikelihood(index).getLogLikelihood();
+
+				double value =  allParameters.getParameterValue(index);
+				double candidate = baseProposals[i - counter];
+				allParameters.setParameterValue(index, candidate);
+				// likelihood.makeDirty();
+				tdl.makeDirty();
+
+				logClusterProbs[i] = logClusterProbs[i] + tdl.getDataLikelihoodDelegate().getSiteLogLikelihoods()[indexWithPartitionOffset];
+
+				// logClusterProbs[i] = logClusterProbs[i] + likelihood.getLikelihood(index).getLogLikelihood();
 // 				 logClusterProbs[i] = logClusterProbs[i] + likelihood.getLogLikelihood();
- 				 
+
 //           	  System.out.println(likelihood.getLikelihood(index) .getLogLikelihood() + " " + likelihood .getLogLikelihood());
-            	 
-            	 allParameters.setParameterValue(index, value);
-            	 likelihood.makeDirty();
-            	 
-            }
-            
-            double smallestVal = logClusterProbs[0];
-            for(i = 1; i < uniqueRealizationCount; i++){
-                
-            	if(smallestVal > logClusterProbs[i]) {
-                    smallestVal = logClusterProbs[i];
-                }
-            
-            }
-            
-            
-            double[] clusterProbs = new double[uniqueRealizationCount];
-            for(i = 0; i < clusterProbs.length;i++) {
-                    clusterProbs[i] = Math.exp(logClusterProbs[i]-smallestVal);
-            
-            }
+
+				allParameters.setParameterValue(index, value);
+				//likelihood.makeDirty();
+				tdl.makeDirty();
+			}
+
+			double smallestVal = logClusterProbs[0];
+			for(i = 1; i < uniqueRealizationCount; i++){
+
+				if(smallestVal > logClusterProbs[i]) {
+					smallestVal = logClusterProbs[i];
+				}
+
+			}
+
+
+			double[] clusterProbs = new double[uniqueRealizationCount];
+			for(i = 0; i < clusterProbs.length;i++) {
+				clusterProbs[i] = Math.exp(logClusterProbs[i]-smallestVal);
+
+			}
 
 //            dr.app.bss.Utils.printArray(clusterProbs);
 //         	System.exit(-1);
-            
+
 			// sample
 			int sampledCluster = MathUtils.randomChoicePDF(clusterProbs);
 			categoriesParameter.setParameterValue(index, sampledCluster);
-            
-            
+
+
 		}//END: index loop
-		
-		
+
+
 	}//END: doOp
-	
-	
+
+
 	private void doOperate() throws MathException {
 
 		// int index = 0;
@@ -247,12 +265,12 @@ public class DirichletProcessOperator extends SimpleMCMCOperator implements
 
 			Likelihood clusterLikelihood = (Likelihood) likelihood.getLikelihood(index);
 //			Likelihood clusterLikelihood = likelihood;
-			
+
 			int category = (int) categoriesParameter.getParameterValue(index);
 			double value = uniqueParameters.getParameterValue(category);
-			
+
 			double[] clusterProbs = new double[uniqueRealizationCount];
-			
+
 			for (int i = 0; i < uniqueRealizationCount; i++) {
 
 				double logprob = 0;
