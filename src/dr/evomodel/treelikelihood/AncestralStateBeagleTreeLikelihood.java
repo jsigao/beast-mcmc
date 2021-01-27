@@ -38,14 +38,18 @@ import dr.evolution.tree.Tree;
 import dr.evolution.tree.TreeTrait;
 import dr.evolution.tree.TreeTraitProvider;
 import dr.evomodel.branchratemodel.BranchRateModel;
+import dr.evomodel.substmodel.SubstitutionModel;
 import dr.evomodel.tree.TreeModel;
 import dr.evomodel.tipstatesmodel.TipStatesModel;
 import dr.inference.model.Model;
 import dr.inference.model.Parameter;
+import dr.inference.markovjumps.MarkovJumpsCore;
 import dr.math.MathUtils;
 
 import java.util.Map;
 import java.util.Set;
+
+import java.util.*;
 
 /**
  * @author Marc Suchard
@@ -88,6 +92,9 @@ public class AncestralStateBeagleTreeLikelihood extends BeagleTreeLikelihood imp
 
         probabilities = new double[stateCount * stateCount * categoryCount];
         partials = new double[stateCount * patternCount * categoryCount];
+        probabilitiesAlongBranch = new ArrayList<double[]>();
+        probabilitiesConvolved = new ArrayList<double[]>();
+        branchRatesAlongBranch = new ArrayList<Double>();
 //        rootPartials = new double[stateCount*patternCount];
 //        cumulativeScaleBuffers = new int[nodeCount][];
 //        scaleBufferIndex = getScaleBufferCount() - 1;
@@ -223,7 +230,7 @@ public class AncestralStateBeagleTreeLikelihood extends BeagleTreeLikelihood imp
         return internalNodeCount + 2;
     }
 
-    private int drawChoice(double[] measure) {
+    protected int drawChoice(double[] measure) {
         if (useMAP) {
             double max = measure[0];
             int choice = 0;
@@ -302,6 +309,135 @@ public class AncestralStateBeagleTreeLikelihood extends BeagleTreeLikelihood imp
     protected void getMatrix(int branchIndex, double[] probabilities) {
         beagle.getTransitionMatrix(substitutionModelDelegate.getMatrixIndex(branchIndex), probabilities);
         // NB: It may be faster to compute matrices in BEAST via substitutionModel
+    }
+    
+    protected void getTransitionProbabilityMatrices(Tree tree, NodeRef childNode) {
+    
+        NodeRef parentNode = tree.getParent(childNode);
+
+        final double parentTime = tree.getNodeHeight(parentNode);
+        final double childTime = tree.getNodeHeight(childNode);
+        final double branchTime = parentTime - childTime;
+        final double branchRate = branchRateModel.getBranchRate(tree, childNode);
+        
+        BranchModel.Mapping mapping = branchModel.getBranchModelMapping(childNode);
+        int[] order = mapping.getOrder();
+        double[] weights = mapping.getWeights();
+        
+        double[] branchTimes = new double[order.length];
+        double[] branchRates = new double[order.length];
+        branchTimes[0] = branchTime;
+        branchRates[0] = branchRate;
+        
+        if (order.length > 1) {
+            
+            double sum = 0.0;
+            for (double w : weights) {
+                sum += w;
+            }
+            
+            double[] matrixWeights = new double[weights.length];
+            double[] matrixWeightsCumsum = new double[weights.length + 1];
+            for (int j = 0; j < weights.length; j++) {
+                matrixWeights[j] = weights[j] / sum;
+                matrixWeightsCumsum[j + 1] = matrixWeightsCumsum[j] + matrixWeights[j];
+                branchTimes[j] = matrixWeights[j] * branchTime;
+            }
+            
+            // compute branch rates
+            Arrays.fill(branchRates, branchRate);
+            if (branchRateModel != null) {
+                
+                BranchRateModel.Mapping rateMapping = branchRateModel.getBranchRateModelMapping(tree, childNode);
+                double[] rates = rateMapping.getRates();
+                double[] rateWeights = rateMapping.getWeights();
+            
+                if (rates.length > 1) {
+
+                    sum = 0.0;
+                    for (double w : rateWeights) {
+                        sum += w;
+                    }
+                    double[] rateWeightsCumsum = new double[rateWeights.length + 1];
+                    for (int j = 0; j < rates.length; j++) {
+                        rateWeights[j] = rateWeights[j] / sum;
+                        rateWeightsCumsum[j + 1] = rateWeightsCumsum[j] + rateWeights[j];
+                    }
+                    
+                    int k = 0;
+                    double lastCumsum;
+                    Arrays.fill(branchRates, 0.0);
+                    for (int j = 0; j < weights.length; j++) {
+                        lastCumsum = matrixWeightsCumsum[j];
+                        
+                        while (k < rates.length && rateWeightsCumsum[k + 1] <= matrixWeightsCumsum[j + 1]) {
+                            branchRates[j] += (rateWeightsCumsum[k + 1] - lastCumsum) * rates[k];
+                            lastCumsum = rateWeightsCumsum[k + 1];
+                            k++;
+                        }
+                        
+                        if (matrixWeightsCumsum[j + 1] > lastCumsum && k < rates.length) {
+                            branchRates[j] += (matrixWeightsCumsum[j + 1] - lastCumsum) * rates[k];
+                        }
+                        
+                        branchRates[j] /= matrixWeights[j];
+                    }
+                }
+            }
+        }
+        
+        branchRatesAlongBranch.clear();
+        for (double r : branchRates) {
+            branchRatesAlongBranch.add(r);
+        }
+        
+        // compute transition probability matrix for each piece
+        probabilitiesAlongBranch.clear();
+        for (int j = 0; j < order.length; j++) {
+            probabilitiesAlongBranch.add(new double[stateCount * stateCount * categoryCount]);
+        
+            for (int k = 0; k < categoryCount; k++) {
+                final double edgeLength = branchTimes[j] * branchRates[j] * siteRateModel.getRateForCategory(k);
+                double[] probabilitiesTmp = new double[stateCount * stateCount];
+                substitutionModelDelegate.getSubstitutionModel(order[j]).getTransitionProbabilities(edgeLength, probabilitiesTmp);
+                System.arraycopy(probabilitiesTmp, 0, probabilitiesAlongBranch.get(j), k * stateCount * stateCount, stateCount * stateCount);
+            }
+        }
+        
+        // convolve transition probability matrix
+        probabilitiesConvolved.clear();        
+        for (int j = order.length - 2; j >= 0; j--) {
+            probabilitiesConvolved.add(0, new double[stateCount * stateCount * categoryCount]);
+            
+            for (int k = 0; k < categoryCount; k++) {
+                double[] probabilitiesTmp0 = new double[stateCount * stateCount];
+                double[] probabilitiesTmp1 = new double[stateCount * stateCount];
+                double[] probabilitiesTmp2 = new double[stateCount * stateCount];
+                
+                System.arraycopy(probabilitiesAlongBranch.get(j), k * stateCount * stateCount, probabilitiesTmp1, 0, stateCount * stateCount);                
+                if (j == order.length - 2) {
+                    System.arraycopy(probabilitiesAlongBranch.get(j + 1), k * stateCount * stateCount, probabilitiesTmp2, 0, stateCount * stateCount);
+                } else {
+                    System.arraycopy(probabilitiesConvolved.get(1), k * stateCount * stateCount, probabilitiesTmp2, 0, stateCount * stateCount);
+                }
+                
+                MarkovJumpsCore.matrixMultiply(probabilitiesTmp1, probabilitiesTmp2, stateCount, probabilitiesTmp0);
+                System.arraycopy(probabilitiesTmp0, 0, probabilitiesConvolved.get(0), k * stateCount * stateCount, stateCount * stateCount);
+            }
+        }
+    }
+    
+    protected void getTransitionProbabilityMatrix(Tree tree, NodeRef childNode, double[] probabilities, boolean update) {
+        
+        if (update) {
+            getTransitionProbabilityMatrices(tree, childNode);
+        }
+        
+        if (probabilitiesConvolved.size() > 0) {
+            System.arraycopy(probabilitiesConvolved.get(0), 0, probabilities, 0, categoryCount * stateCount * stateCount);
+        } else {
+            System.arraycopy(probabilitiesAlongBranch.get(0), 0, probabilities, 0, categoryCount * stateCount * stateCount);
+        }
     }
 
     public void setTipStates(int tipNum, int[] states) {
@@ -461,7 +597,8 @@ public class AncestralStateBeagleTreeLikelihood extends BeagleTreeLikelihood imp
 //                if (categoryCount > 1)
 //                    throw new RuntimeException("Reconstruction not implemented for multiple categories yet.");
 
-                getMatrix(nodeNum, probabilities);
+//                 getMatrix(nodeNum, probabilities);
+                getTransitionProbabilityMatrix(tree, node, probabilities, true);
 
                 for (int j = 0; j < patternCount; j++) {
 
@@ -497,10 +634,11 @@ public class AncestralStateBeagleTreeLikelihood extends BeagleTreeLikelihood imp
         } else {
 
             // This is an external leaf
+            getTransitionProbabilityMatrix(tree, node, probabilities, true);
 
             if (useAmbiguities()) {
 
-                getMatrix(nodeNum, probabilities);
+//                 getMatrix(nodeNum, probabilities);
                 double[] partials = tipPartials[nodeNum];
 
                 for (int j = 0; j < patternCount; j++) {
@@ -536,7 +674,7 @@ public class AncestralStateBeagleTreeLikelihood extends BeagleTreeLikelihood imp
                         int category = rateCategory == null ? 0 : rateCategory[j];
                         int matrixIndex = category * stateCount * stateCount;
 
-                        getMatrix(nodeNum, probabilities);
+//                         getMatrix(nodeNum, probabilities);
                         System.arraycopy(probabilities, parentIndex + matrixIndex, conditionalProbabilities, 0, stateCount);
 
                         if (useAmbiguities && !dataType.isUnknownState(thisState)) { // Not completely unknown
@@ -553,7 +691,7 @@ public class AncestralStateBeagleTreeLikelihood extends BeagleTreeLikelihood imp
 
                     if (!returnMarginalLogLikelihood) {
                         final int parentIndex = parentState[j] * stateCount;
-                        getMatrix(nodeNum, probabilities);
+//                         getMatrix(nodeNum, probabilities);
                         if (!returnMarginalLogLikelihood) {
                             double contrib = probabilities[parentIndex + reconstructedStates[nodeNum][j]];
                             jointLogLikelihood += Math.log(contrib);
@@ -590,6 +728,9 @@ public class AncestralStateBeagleTreeLikelihood extends BeagleTreeLikelihood imp
     private double[][] tipPartials;
 
     private double[] probabilities;
+    protected List<double[]> probabilitiesAlongBranch;
+    protected List<double[]> probabilitiesConvolved;
+    protected List<Double> branchRatesAlongBranch;
     private double[] partials;
 
     protected int[] rateCategory = null;

@@ -133,13 +133,17 @@ public class UniformizedSubstitutionModel extends MarkovJumpsSubstitutionModel {
    public String getCompleteHistory(Double newStartTime, Double newEndTime) {
         return getCompleteHistory(-1, newStartTime, newEndTime);
    }
+   
+   public String getCompleteHistory(int site, Double newStartTime, Double newEndTime) {
+        return getCompleteHistory(site, newStartTime, newEndTime, true);
+   }
 
-    public String getCompleteHistory(int site, Double newStartTime, Double newEndTime) {
+    public String getCompleteHistory(int site, Double newStartTime, Double newEndTime, boolean wrap) {
         if (newStartTime != null && newEndTime != null) {
             // Rescale time of events
             completeHistory.rescaleTimesOfEvents(newStartTime, newEndTime);
         }
-        return completeHistory.toStringChanges(site, dataType); //, 0.0);
+        return completeHistory.toStringChanges(site, dataType, wrap); //, 0.0);
     }
 
     public int getNumberOfJumpsInCompleteHistory() {

@@ -40,6 +40,7 @@ import dr.evomodel.tree.TreeModel;
 import dr.evomodel.tipstatesmodel.TipStatesModel;
 import dr.inference.loggers.LogColumn;
 import dr.inference.loggers.NumberColumn;
+import dr.inference.markovjumps.MarkovJumpsCore;
 import dr.inference.markovjumps.MarkovJumpsRegisterAcceptor;
 import dr.inference.markovjumps.MarkovJumpsType;
 import dr.inference.model.Parameter;
@@ -175,111 +176,117 @@ public class MarkovJumpsBeagleTreeLikelihood extends AncestralStateBeagleTreeLik
                 treeTraits.addTrait(addRegisterParameter.getId(),
                         new TreeTrait.SumAcrossArrayD(
                                 new TreeTrait.SumOverTreeDA(da)));
+                
+                numRegisters++;
 
             } else {
-                if (histories == null) {
-                    histories = new String[treeModel.getNodeCount()][patternCount];
-                } else {
-                    throw new RuntimeException("Only one complete history per markovJumpTreeLikelihood is allowed");
-                }
+            
                 if (nSimulants > 1) {
                     throw new RuntimeException("Only one simulant allowed when saving complete history");
                 }
 
-                // Add total number of changes over tree trait
-                TreeTrait da = new TreeTrait.DA() {
-
-                    final int registerNumber = numRegisters;
-
-                    public String getTraitName() {
-                        return tag;
-                    }
-
-                    public Intent getIntent() {
-                        return Intent.BRANCH;
-                    }
-
-                    public double[] getTrait(Tree tree, NodeRef node) {
-                        return getMarkovJumpsForNodeAndRegister(tree, node, registerNumber);
-                    }
-                };
-
-                treeTraits.addTrait(addRegisterParameter.getId(), new TreeTrait.SumOverTreeDA(da));
-
-                historyRegisterNumber = numRegisters; // Record the complete history for this register
                 ((UniformizedSubstitutionModel) mjModel).setSaveCompleteHistory(true);
+                
+                if (histories == null) {
+                    histories = new String[treeModel.getNodeCount()][patternCount];
+                    historyRegisterNumber = numRegisters; // Record the complete history for this register
+                    
+                    TreeTrait da = new TreeTrait.DA() {
 
-                if (useCompactHistory && logHistory) {
+                        final int registerNumber = numRegisters;
 
-                    treeTraits.addTrait(ALL_HISTORY, new TreeTrait.SA() {
                         public String getTraitName() {
-                            return ALL_HISTORY;
+                            return tag;
                         }
 
                         public Intent getIntent() {
                             return Intent.BRANCH;
                         }
 
-                        public boolean getFormatAsArray() {
-                            return true;
+                        public double[] getTrait(Tree tree, NodeRef node) {
+                            return getMarkovJumpsForNodeAndRegister(tree, node, registerNumber);
                         }
+                    };
+                
+                    // Add total number of changes over tree trait
+                    treeTraits.addTrait(addRegisterParameter.getId(), new TreeTrait.SumOverTreeDA(da));
 
-                        public String[] getTrait(Tree tree, NodeRef node) {
+                    if (useCompactHistory && logHistory) {
 
-                            List<String> events = new ArrayList<String>();
-                            for (int i = 0; i < patternCount; i++) {
-                                String eventString = getHistoryForNode(tree, node, i);
-                                if (eventString != null && eventString.compareTo("{}") != 0) {
-                                    eventString = eventString.substring(1, eventString.length() - 1);
-                                    if (eventString.contains("},{")) { // There are multiple events
-                                        String[] elements = eventString.split("(?<=\\}),(?=\\{)");
-                                        for (String e : elements) {
-                                            events.add(e);
+                        treeTraits.addTrait(ALL_HISTORY, new TreeTrait.SA() {
+                            public String getTraitName() {
+                                return ALL_HISTORY;
+                            }
+
+                            public Intent getIntent() {
+                                return Intent.BRANCH;
+                            }
+
+                            public boolean getFormatAsArray() {
+                                return true;
+                            }
+
+                            public String[] getTrait(Tree tree, NodeRef node) {
+
+                                List<String> events = new ArrayList<String>();
+                                for (int i = 0; i < patternCount; i++) {
+                                    String eventString = getHistoryForNode(tree, node, i);
+                                    if (eventString != null && eventString.compareTo("{}") != 0) {
+                                        eventString = eventString.substring(1, eventString.length() - 1);
+                                        if (eventString.contains("},{")) { // There are multiple events
+                                            String[] elements = eventString.split("(?<=\\}),(?=\\{)");
+                                            for (String e : elements) {
+                                                events.add(e);
+                                            }
+                                        } else {
+                                            events.add(eventString);
                                         }
-                                    } else {
-                                        events.add(eventString);
                                     }
                                 }
+                                String[] array = new String[events.size()];
+                                events.toArray(array);
+                                return array;
                             }
-                            String[] array = new String[events.size()];
-                            events.toArray(array);
-                            return array;
-                        }
 
-                        public boolean getLoggable() {
-                            return true;
-                        }
-                    });
+                            public boolean getLoggable() {
+                                return true;
+                            }
+                        });
+                    }
+
+                    for (int site = 0; site < patternCount; ++site) {
+
+                        final String anonName = (patternCount == 1) ? HISTORY : HISTORY + "_" + (site + 1);
+                        final int anonSite = site;
+
+                        treeTraits.addTrait(anonName, new TreeTrait.S() {
+
+                            public String getTraitName() {
+                                return anonName;
+                            }
+
+                            public Intent getIntent() {
+                                return Intent.BRANCH;
+                            }
+
+                            public String getTrait(Tree tree, NodeRef node) {
+                                String history = getHistoryForNode(tree, node, anonSite);
+                                return (history.compareTo("{}") != 0) ? history : null; // Return null if empty
+                            }
+
+                            public boolean getLoggable() {
+                                return logHistory && !useCompactHistory;
+                            }
+                        });
+                    }
+                    
+                    numRegisters++;
                 }
-
-                for (int site = 0; site < patternCount; ++site) {
-
-                    final String anonName = (patternCount == 1) ? HISTORY : HISTORY + "_" + (site + 1);
-                    final int anonSite = site;
-
-                    treeTraits.addTrait(anonName, new TreeTrait.S() {
-
-                        public String getTraitName() {
-                            return anonName;
-                        }
-
-                        public Intent getIntent() {
-                            return Intent.BRANCH;
-                        }
-
-                        public String getTrait(Tree tree, NodeRef node) {
-                            String history = getHistoryForNode(tree, node, anonSite);
-                            return (history.compareTo("{}") != 0) ? history : null; // Return null if empty
-                        }
-
-                        public boolean getLoggable() {
-                            return logHistory && !useCompactHistory;
-                        }
-                    });
-                }
+                
+//                 else {
+//                     throw new RuntimeException("Only one complete history per markovJumpTreeLikelihood is allowed");
+//                 }
             }
-
-            numRegisters++;
 
         } // End of loop over branch models
     }
@@ -376,7 +383,8 @@ public class MarkovJumpsBeagleTreeLikelihood extends AncestralStateBeagleTreeLik
 
         double[] probabilities = inProbabilities;
         if (probabilities == null) { // Leaf will call this hook with a null
-            getMatrix(childNum, tmpProbabilities);
+//             getMatrix(childNum, tmpProbabilities);
+            getTransitionProbabilityMatrix(tree, childNode, tmpProbabilities, false);
             probabilities = tmpProbabilities;
         }
 
@@ -384,33 +392,129 @@ public class MarkovJumpsBeagleTreeLikelihood extends AncestralStateBeagleTreeLik
         final double parentTime = tree.getNodeHeight(parentNode);
         final double childTime = tree.getNodeHeight(childNode);
         final double substTime = parentTime - childTime;
-
+        
+        Arrays.fill(histories[childNum], "{");
+        
         for (int r = 0; r < markovjumps.size(); r++) {
-            MarkovJumpsSubstitutionModel thisMarkovJumps = markovjumps.get(r);
+            Arrays.fill(expectedJumps.get(r)[childNum], 0.0);
+        }
+        
+        BranchModel.Mapping mapping = branchModel.getBranchModelMapping(childNode);
+        int[] order = mapping.getOrder();
+        double[] weights = mapping.getWeights();
+        
+        if (order.length == 1 || (!useUniformization)) {
+            for (int r = 0; r < markovjumps.size(); r++) {
+                MarkovJumpsSubstitutionModel thisMarkovJumps = markovjumps.get(r);
 
-            final int modelNumberFromrRegistry = branchModelNumber.get(r);
-//            int dummy = 0;
-//            final int modelNumberFromTree = branchSubstitutionModel.getBranchIndex(tree, childNode, dummy);
-            // @todo AR - not sure about this - if this is an epoch this is just going to get the most
-            // @todo tipward model for the branch. I think this was what was happening before (in comment,
-            // @todo above).
-            BranchModel.Mapping mapping = branchModel.getBranchModelMapping(childNode);
+                final int modelNumberFromrRegistry = branchModelNumber.get(r);
+    //            int dummy = 0;
+    //            final int modelNumberFromTree = branchSubstitutionModel.getBranchIndex(tree, childNode, dummy);
+                // @todo AR - not sure about this - if this is an epoch this is just going to get the most
+                // @todo tipward model for the branch. I think this was what was happening before (in comment,
+                // @todo above).
 
-            if (modelNumberFromrRegistry == mapping.getOrder()[0]) {
-                if (useUniformization) {
-                    computeSampledMarkovJumpsForBranch(((UniformizedSubstitutionModel) thisMarkovJumps), substTime,
-                            branchRate, childNum, parentStates, childStates, parentTime, childTime, probabilities, scaleByTime[r],
-                            expectedJumps.get(r), rateCategory, r == historyRegisterNumber);
+                if (modelNumberFromrRegistry == mapping.getOrder()[0]) {
+                    if (useUniformization) {
+                        computeSampledMarkovJumpsForBranch(((UniformizedSubstitutionModel) thisMarkovJumps), substTime,
+                                branchRate, childNum, parentStates, childStates, parentTime, childTime, probabilities, scaleByTime[r],
+                                expectedJumps.get(0), rateCategory, true);
+                    } else {
+                        computeIntegratedMarkovJumpsForBranch(thisMarkovJumps, substTime, branchRate, childNum, parentStates,
+                                childStates, probabilities, condJumps, scaleByTime[r], expectedJumps.get(r), rateCategory);
+                    }
                 } else {
-                    computeIntegratedMarkovJumpsForBranch(thisMarkovJumps, substTime, branchRate, childNum, parentStates,
-                            childStates, probabilities, condJumps, scaleByTime[r], expectedJumps.get(r), rateCategory);
+                    // Fill with zeros
+                    double[] result = expectedJumps.get(r)[childNum];
+                    Arrays.fill(result, 0.0);
                 }
-            } else {
-                // Fill with zeros
-                double[] result = expectedJumps.get(r)[childNum];
-                Arrays.fill(result, 0.0);
+            }
+        } else {
+        
+        // compute time for each piece
+            double[] parentTimes = new double[order.length];
+            double[] childTimes = new double[order.length];
+            double[] substTimes = new double[order.length];
+            parentTimes[0] = parentTime;
+    
+            double sum = 0.0;
+            for (double w : weights) {
+                sum += w;
+            }
+            
+            double[] branchRates = new double[order.length];
+            double[] matrixWeights = new double[order.length];
+            for (int j = 0; j < order.length; j++) {
+                matrixWeights[j] = weights[j] / sum;
+                substTimes[j] = matrixWeights[j] * substTime;
+                childTimes[j] = parentTimes[j] - substTimes[j];
+                
+                if (j < weights.length - 1) {
+                    parentTimes[j + 1] = childTimes[j];
+                }
+                
+                branchRates[j] = branchRatesAlongBranch.get(j);
+            }
+            
+            // sample intermediate states
+            int[][] parentStatesAll = new int[order.length][patternCount];
+            int[][] childStatesAll = new int[order.length][patternCount];
+            parentStatesAll[0] = parentStates;
+            childStatesAll[order.length - 1] = childStates;
+            
+            for (int j = 0; j < order.length - 1; j++) {
+                for (int k = 0; k < patternCount; k++) {
+                    final int category = rateCategory == null ? 0 : rateCategory[k];
+                    final int matrixIndex = category * stateCount * stateCount;
+                    final int startState = parentStatesAll[j][k];
+                    final int endState = childStates[k];
+                    double probSE = probabilitiesConvolved.get(j)[matrixIndex + startState * stateCount + endState];
+                    
+                    double[] interStateProb = new double[stateCount];
+                    double probSum = 0.0;
+                    
+                    for (int interState = 0; interState < stateCount; interState++) {
+                        double probSI = probabilitiesAlongBranch.get(j)[matrixIndex + startState * stateCount + interState];
+                        double probIE;
+                        if (j == order.length - 2) {
+                            probIE = probabilitiesAlongBranch.get(j + 1)[matrixIndex + interState * stateCount + endState];
+                        } else {
+                           probIE = probabilitiesConvolved.get(j + 1)[matrixIndex + interState * stateCount + endState];
+                        }
+                                                
+                        interStateProb[interState] = probSI * probIE / probSE;
+                        probSum += interStateProb[interState];
+                    }
+                    
+                    for (int interState = 0; interState < stateCount; interState++) {
+                        interStateProb[interState] /= probSum;
+                    }
+                    
+                    int interState = drawChoice(interStateProb);
+                    parentStatesAll[j + 1][k] = interState;
+                    childStatesAll[j][k] = interState;
+                }
+            }
+            
+            for (int j = 0; j < order.length; j++) {
+                
+                int r = branchModelNumber.indexOf(order[j]);
+                MarkovJumpsSubstitutionModel thisMarkovJumps = markovjumps.get(r);
+                
+                computeSampledMarkovJumpsForBranch(((UniformizedSubstitutionModel) thisMarkovJumps), substTimes[j],
+                            branchRates[j], childNum, parentStatesAll[j], childStatesAll[j], parentTimes[j], childTimes[j], probabilitiesAlongBranch.get(j), scaleByTime[r],
+                            expectedJumps.get(0), rateCategory, true);
+            
             }
         }
+        
+        for (int j = 0; j < patternCount; j++) {
+            if (histories[childNum][j].charAt(histories[childNum][j].length() - 1) == ',') {
+                histories[childNum][j] = histories[childNum][j].substring(0, histories[childNum][j].length() - 1);
+            }
+            histories[childNum][j] += '}';
+        }
+        
     }
 
     private void computeSampledMarkovJumpsForBranch(UniformizedSubstitutionModel thisMarkovJumps,
@@ -442,10 +546,13 @@ public class MarkovJumpsBeagleTreeLikelihood extends AncestralStateBeagleTreeLik
             if (scaleByTime) {
                 value /= branchRate * categoryRate;
             }
-            thisExpectedJumps[childNum][j] = value;
+            thisExpectedJumps[childNum][j] += value;
             if (saveHistory) {
                 int site = (useCompactHistory) ? j + 1 : -1;
-                histories[childNum][j] = thisMarkovJumps.getCompleteHistory(site, parentTime, childTime);
+                String historyTmp = thisMarkovJumps.getCompleteHistory(site, parentTime, childTime, false);
+                if (historyTmp != null && historyTmp.length() > 0) {
+                    histories[childNum][j] += historyTmp + ',';
+                }
             }
         }
     }
