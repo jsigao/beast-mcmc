@@ -49,11 +49,18 @@ import java.util.*;
 public class EpochBranchModel extends AbstractModel implements BranchModel, Citable {
 
     public static final String EPOCH_BRANCH_MODEL = "EpochBranchModel";
-
+    
+    public EpochBranchModel(TreeModel tree,
+    		                List<SubstitutionModel> substitutionModels,
+    		                Parameter epochTimes) {
+        this(tree, substitutionModels, epochTimes, null);
+    }
 
     public EpochBranchModel(TreeModel tree,
                             List<SubstitutionModel> substitutionModels,
-                            Parameter epochTimes) {
+                            Parameter epochTimes,
+                            FrequencyModel rootFrequencyModel) {
+
 
         super(EPOCH_BRANCH_MODEL);
 
@@ -67,6 +74,13 @@ public class EpochBranchModel extends AbstractModel implements BranchModel, Cita
 
         for (SubstitutionModel model : substitutionModels) {
             addModel(model);
+        }
+                
+        if (rootFrequencyModel != null) {
+            addModel(rootFrequencyModel);
+            this.rootFrequencyModel = rootFrequencyModel;
+        } else {
+            this.rootFrequencyModel = getRootSubstitutionModel().getFrequencyModel();
         }
 
         addModel(tree);
@@ -152,7 +166,7 @@ public class EpochBranchModel extends AbstractModel implements BranchModel, Cita
     }
 
     public FrequencyModel getRootFrequencyModel() {
-        return getRootSubstitutionModel().getFrequencyModel();
+        return rootFrequencyModel;
     }
 
     protected void handleModelChangedEvent(Model model, Object object, int index) {
@@ -193,4 +207,5 @@ public class EpochBranchModel extends AbstractModel implements BranchModel, Cita
     private final TreeModel tree;
     private final List<SubstitutionModel> substitutionModels;
     private final Parameter epochTimes;
+    private final FrequencyModel rootFrequencyModel;
 }// END: class

@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import dr.evomodel.branchmodel.EpochBranchModel;
+import dr.evomodel.substmodel.FrequencyModel;
 import dr.evomodel.substmodel.SubstitutionModel;
 import dr.evomodel.branchratemodel.RateEpochBranchRateModel;
 import dr.evomodel.tree.TreeModel;
@@ -100,8 +101,10 @@ public class EpochBranchModelParser extends AbstractXMLObjectParser {
         }
 
         substitutionModels.add(ancestralSubstitutionModel);
+        
+        FrequencyModel rootFreqModel = (FrequencyModel) xo.getChild(FrequencyModel.class);
 
-        return new EpochBranchModel(tree, substitutionModels, transitionTimes);
+        return new EpochBranchModel(tree, substitutionModels, transitionTimes, rootFreqModel);
     }
 
     class Epoch implements Comparable<Object> {
@@ -153,6 +156,7 @@ public class EpochBranchModelParser extends AbstractXMLObjectParser {
                     }, "An epoch that lasts until transitionTime",
                     1, Integer.MAX_VALUE
             ),
+            new ElementRule(FrequencyModel.class, true),
     };
 
 }
