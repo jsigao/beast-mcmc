@@ -130,6 +130,19 @@ public class UniversalClock extends AbstractBranchRateModel {
     public double getBranchRate(Tree tree, NodeRef node) {
         throw new RuntimeException("Look at code before running this class!");
     }
+    
+    public Mapping getBranchRateModelMapping(final Tree tree, final NodeRef node) {
+        
+        return new Mapping() {
+            public double[] getRates() {
+                return new double[] { getBranchRate(tree, node) };
+            }
+
+            public double[] getWeights() {
+                return new double[] { 1.0 };
+            }
+        };
+    }
 
     Parameter rateParameter = null;
     Parameter massParameter = null;

@@ -148,6 +148,19 @@ public class RandomLocalClockModel extends AbstractBranchRateModel
         }
         return unscaledBranchRates[node.getNumber()] * scaleFactor;
     }
+    
+    public Mapping getBranchRateModelMapping(final Tree tree, final NodeRef node) {
+        
+        return new Mapping() {
+			public double[] getRates() {
+				return new double[] { getBranchRate(tree, node) };
+			}
+
+			public double[] getWeights() {
+				return new double[] { 1.0 };
+			}
+		};
+    }
 
     private void calculateUnscaledBranchRates(TreeModel tree) {
         recursivelyCompute(tree, tree.getRoot(), 1.0);

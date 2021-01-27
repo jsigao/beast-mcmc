@@ -309,6 +309,19 @@ public class DiscretizedBranchRates extends AbstractBranchRateModel implements C
         //System.out.println(rates[rateCategory] + "\t"  + rateCategory);
         return rates[currentRateArrayIndex][rateCategory] * scaleFactor;
     }
+    
+    public Mapping getBranchRateModelMapping(final Tree tree, final NodeRef node) {
+        
+        return new Mapping() {
+			public double[] getRates() {
+				return new double[] { getBranchRate(tree, node) };
+			}
+
+			public double[] getWeights() {
+				return new double[] { 1.0 };
+			}
+		};
+    }
 
     public final int getBranchRateCategory(final Tree tree, final NodeRef node) {
 
