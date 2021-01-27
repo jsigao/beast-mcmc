@@ -88,9 +88,9 @@ public class AncestralStateTreeLikelihoodParser extends BeagleTreeLikelihoodPars
         boolean useMAP = xo.getAttribute(MAP_RECONSTRUCTION, false);
         boolean useMarginalLogLikelihood = xo.getAttribute(MARGINAL_LIKELIHOOD, true);
 
-        if (patternList.areUnique()) {
-            throw new XMLParseException("Ancestral state reconstruction cannot be used with compressed (unique) patterns.");
-        }
+//         if (patternList.areUnique()) {
+//             throw new XMLParseException("Ancestral state reconstruction cannot be used with compressed (unique) patterns.");
+//         }
 
         return new AncestralStateBeagleTreeLikelihood(  // Current just returns a OldBeagleTreeLikelihood
                 patternList,
