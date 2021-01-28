@@ -116,8 +116,11 @@ public class EpochBranchModel extends AbstractModel implements BranchModel, Cita
         final int[] order = new int[orderList.size()];
         final double[] weights = new double[weightList.size()];
         for (int i = 0; i < orderList.size(); i++) {
-            order[i] = orderList.get(i);
-            weights[i] = weightList.get(i);
+        // here we need to reverse the order as we were traversing from child to parent
+        // but the transition probability matrix of a given branch should be the product
+        // of matrices multiplying from parent to child
+            order[i] = orderList.get(orderList.size() - (i + 1));
+            weights[i] = weightList.get(orderList.size() - (i + 1));
         }
 
         return new Mapping() {

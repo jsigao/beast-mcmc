@@ -32,6 +32,8 @@ import dr.inference.model.Model;
 import dr.inference.model.Parameter;
 import dr.inference.model.Variable;
 
+import java.util.*;
+
 /**
  * Implements a model where time is broken into 'epochs' each with a different but
  * constant rate. Parameters can be used to sample transition times but it is up
@@ -119,6 +121,68 @@ public class RateEpochBranchRateModel extends AbstractBranchRateModel {
             return normalizeRate(rate / (height1 - height0));
         }
         throw new IllegalArgumentException("root node doesn't have a rate!");
+    }
+    
+    public Mapping getBranchRateModelMapping(final Tree tree, final NodeRef node) {
+        
+        NodeRef parent = tree.getParent(node);
+        
+        List<Double> weightList = new ArrayList<Double>();
+        List<Double> rateList = new ArrayList<Double>();
+
+        if (parent != null) {
+            double height0 = tree.getNodeHeight(node);
+            double height1 = tree.getNodeHeight(parent);
+            int i = 0;
+
+            double rate = 0.0;
+            double lastHeight = height0;
+
+            // First find the epoch which contains the node height
+            while (i < timeParameters.length && height0 > timeParameters[i].getParameterValue(0)) {
+                i++;
+            }
+
+            // Now walk up the branch until we reach the last epoch or the height of the parent
+            while (i < timeParameters.length && height1 > timeParameters[i].getParameterValue(0)) {
+                // add the rate for that epoch multiplied by the time spent at that rate
+                weightList.add( timeParameters[i].getParameterValue(0) - lastHeight );
+                rateList.add( rateParameters[i].getParameterValue(0) );
+                lastHeight = timeParameters[i].getParameterValue(0);
+                i++;
+            }
+
+            // Add that last rate segment
+            weightList.add( height1 - lastHeight );
+            rateList.add( rateParameters[i].getParameterValue(0) );
+
+        } else {
+            throw new IllegalArgumentException("root node doesn't have a rate!");
+        }
+        
+        if (weightList.size() == 0) {
+            throw new RuntimeException("RateEpochBranchRateModel failed to give a valid mapping");
+        }
+        
+        final double[] rates = new double[rateList.size()];
+        final double[] weights = new double[weightList.size()];
+        for (int i = 0; i < weightList.size(); i++) {
+        // here we need to reverse the order as we were traversing from child to parent
+        // but the transition probability matrix of a given branch should be the product
+        // of matrices multiplying from parent to child
+            rates[i] = rateList.get(rateList.size() - (i + 1));
+            weights[i] = weightList.get(weightList.size() - (i + 1));
+        }
+        
+        return new Mapping() {
+			public double[] getRates() {
+				return rates;
+			}
+
+			public double[] getWeights() {
+				return weights;
+			}
+		};
     }
 
     protected double normalizeRate(double rate) {
