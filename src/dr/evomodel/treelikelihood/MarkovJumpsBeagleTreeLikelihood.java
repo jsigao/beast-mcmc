@@ -393,7 +393,9 @@ public class MarkovJumpsBeagleTreeLikelihood extends AncestralStateBeagleTreeLik
         final double childTime = tree.getNodeHeight(childNode);
         final double substTime = parentTime - childTime;
         
-        Arrays.fill(histories[childNum], "{");
+        if (histories != null) {
+            Arrays.fill(histories[childNum], "{");
+        }
         
         for (int r = 0; r < markovjumps.size(); r++) {
             Arrays.fill(expectedJumps.get(r)[childNum], 0.0);
@@ -499,11 +501,13 @@ public class MarkovJumpsBeagleTreeLikelihood extends AncestralStateBeagleTreeLik
             }
         }
         
-        for (int j = 0; j < patternCount; j++) {
-            if (histories[childNum][j].charAt(histories[childNum][j].length() - 1) == ',') {
-                histories[childNum][j] = histories[childNum][j].substring(0, histories[childNum][j].length() - 1);
+        if (histories != null) {
+            for (int j = 0; j < patternCount; j++) {
+                if (histories[childNum][j].charAt(histories[childNum][j].length() - 1) == ',') {
+                    histories[childNum][j] = histories[childNum][j].substring(0, histories[childNum][j].length() - 1);
+                }
+                histories[childNum][j] += '}';
             }
-            histories[childNum][j] += '}';
         }
         
     }
