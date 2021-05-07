@@ -139,7 +139,7 @@ public class RateEpochBranchRateModel extends AbstractBranchRateModel {
             double lastHeight = height0;
 
             // First find the epoch which contains the node height
-            while (i < timeParameters.length && height0 > timeParameters[i].getParameterValue(0)) {
+            while (i < timeParameters.length && height0 >= timeParameters[i].getParameterValue(0)) {
                 i++;
             }
 
