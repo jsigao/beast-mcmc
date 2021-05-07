@@ -27,6 +27,7 @@ package dr.evomodel.treelikelihood;
 
 import dr.evolution.datatype.HiddenCodons;
 import dr.evomodel.branchmodel.BranchModel;
+import dr.evomodel.branchmodel.EpochBranchModel;
 import dr.evomodel.siteratemodel.SiteRateModel;
 import dr.evolution.alignment.PatternList;
 import dr.evolution.alignment.UncertainSiteList;
@@ -38,6 +39,7 @@ import dr.evolution.tree.Tree;
 import dr.evolution.tree.TreeTrait;
 import dr.evolution.tree.TreeTraitProvider;
 import dr.evomodel.branchratemodel.BranchRateModel;
+import dr.evomodel.branchratemodel.RateEpochBranchRateModel;
 import dr.evomodel.substmodel.SubstitutionModel;
 import dr.evomodel.tree.TreeModel;
 import dr.evomodel.tipstatesmodel.TipStatesModel;
@@ -325,6 +327,7 @@ public class AncestralStateBeagleTreeLikelihood extends BeagleTreeLikelihood imp
         final double branchRate = branchRateModel.getBranchRate(tree, childNode);
         
         // fetch the matrix and/or rate epochal layout along the branch
+        // combinedWeights contains the (absolute instead of relative) duration of each piece
         combinedWeights.clear();
         combinedMatrixOrder.clear();
         combinedRates.clear();
@@ -334,10 +337,22 @@ public class AncestralStateBeagleTreeLikelihood extends BeagleTreeLikelihood imp
         double[] matrixWeights = matrixMapping.getWeights();
         int nmatrices = matrixOrder.length;
         
+        if (!(branchModel instanceof EpochBranchModel)) {
+            for (int j = 0; j < nmatrices; j++) {
+                matrixWeights[j] *= branchTime;
+            }
+        }
+        
         BranchRateModel.Mapping rateMapping = branchRateModel.getBranchRateModelMapping(tree, childNode);
         double[] rates = rateMapping.getRates();
         double[] rateWeights = rateMapping.getWeights();
         int nrates = rates.length;
+        
+        if (!(branchRateModel instanceof RateEpochBranchRateModel)) {
+            for (int j = 0; j < nrates; j++) {
+                rateWeights[j] *= branchTime;
+            }
+        }
         
         // generate cumulative sum vector for matrices
         double[] matrixWeightsCumsum = new double[nmatrices + 1];
