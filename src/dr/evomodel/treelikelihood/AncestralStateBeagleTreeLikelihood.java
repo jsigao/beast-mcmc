@@ -356,15 +356,19 @@ public class AncestralStateBeagleTreeLikelihood extends BeagleTreeLikelihood imp
         
         // generate cumulative sum vector for matrices
         double[] matrixWeightsCumsum = new double[nmatrices + 1];
-        for (int j = 0; j < nmatrices; j++) {
+        for (int j = 0; j < nmatrices - 1; j++) {
             matrixWeightsCumsum[j + 1] = matrixWeightsCumsum[j] + matrixWeights[j];
         }
         
         // generate cumulative sum vector for rates
         double[] rateWeightsCumsum = new double[nrates + 1];
-        for (int j = 0; j < nrates; j++) {
+        for (int j = 0; j < nrates - 1; j++) {
             rateWeightsCumsum[j + 1] = rateWeightsCumsum[j] + rateWeights[j];
         }
+        
+        // make sure that the last time in the matrix and rate weights cumsum vectors match (which should equal the branch duration)
+        matrixWeightsCumsum[nmatrices] = branchTime;
+        rateWeightsCumsum[nrates] = branchTime;
 
         if (nmatrices == 1 && nrates == 1) {
             
