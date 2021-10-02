@@ -45,8 +45,11 @@ import java.util.*;
 public class ComplexSubstitutionModel extends GeneralSubstitutionModel implements Likelihood, Citable {
 
     public ComplexSubstitutionModel(String name, DataType dataType, FrequencyModel freqModel, Parameter parameter) {
-        super(name, dataType, freqModel, parameter, -1);
+        super(name, dataType, null, parameter, -1);
         probability = new double[stateCount * stateCount];
+        
+        compFreqModel = new ComplexFrequencyModel("complex", dataType, ratesParameter);
+        addModel(compFreqModel);
     }
 
     @Override
@@ -73,6 +76,14 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
 
     protected EigenSystem getDefaultEigenSystem(int stateCount) {
         return new ComplexColtEigenSystem(stateCount);
+    }
+    
+    public FrequencyModel getFrequencyModel() {
+        return compFreqModel;
+    }
+    
+    protected double[] getPi() {
+        return compFreqModel.getFrequencies();
     }
 
     /**
@@ -169,7 +180,8 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
             for (j = i + 1; j < stateCount; j++) {
                 double thisRate = rates[k++];
                 if (thisRate < 0.0) thisRate = 0.0;
-                matrix[i][j] = thisRate * pi[j];
+//                matrix[i][j] = thisRate * pi[j];
+                matrix[i][j] = thisRate;
             }
         }
         // Copy lower triangle in column-order form (transposed)
@@ -177,7 +189,8 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
             for (i = j + 1; i < stateCount; i++) {
                 double thisRate = rates[k++];
                 if (thisRate < 0.0) thisRate = 0.0;
-                matrix[i][j] = thisRate * pi[j];
+//                matrix[i][j] = thisRate * pi[j];
+                matrix[i][j] = thisRate;
             }
         }
     }
@@ -303,4 +316,5 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
     }
 
     private boolean doNormalization = true;
+    protected FrequencyModel compFreqModel;
 }
