@@ -134,10 +134,10 @@ public class MarkovJumpsBeagleTreeLikelihood extends AncestralStateBeagleTreeLik
         }
         addVariable(addRegisterParameter);
         final String tag = addRegisterParameter.getId();
+        
+        boolean isEpochModel = branchModel instanceof EpochBranchModel;
 
         for (int i = 0; i < substitutionModelDelegate.getSubstitutionModelCount(); ++i) {
-
-            boolean isEpochModel = branchModel instanceof EpochBranchModel;
 
             registerParameter.add(addRegisterParameter);
             MarkovJumpsSubstitutionModel mjModel;
@@ -202,21 +202,21 @@ public class MarkovJumpsBeagleTreeLikelihood extends AncestralStateBeagleTreeLik
                 treeTraits.addTrait(addRegisterParameter.getId(),
                         new TreeTrait.SumAcrossArrayD(
                                 new TreeTrait.SumOverTreeDA(da)));
-                
-                numRegisters++;
 
             } else {
-            
-                if (nSimulants > 1) {
-                    throw new RuntimeException("Only one simulant allowed when saving complete history");
-                }
 
-                ((UniformizedSubstitutionModel) mjModel).setSaveCompleteHistory(true);
-                
-                if (histories == null) {
-                    histories = new String[treeModel.getNodeCount()][patternCount];
-                    historyRegisterNumber = numRegisters; // Record the complete history for this register
-                    
+                if (i == 0 || !isEpochModel) {
+
+                    if (histories == null) {
+                        histories = new String[treeModel.getNodeCount()][patternCount];
+                    } else {
+                        throw new RuntimeException("Only one complete history per markovJumpTreeLikelihood is allowed");
+                    }
+                    if (nSimulants > 1) {
+                        throw new RuntimeException("Only one simulant allowed when saving complete history");
+                    }
+
+                    // Add total number of changes over tree trait
                     TreeTrait da = new TreeTrait.DA() {
 
                         final int registerNumber = numRegisters;
@@ -234,8 +234,10 @@ public class MarkovJumpsBeagleTreeLikelihood extends AncestralStateBeagleTreeLik
                         }
                     };
 
-                    // Add total number of changes over tree trait
                     treeTraits.addTrait(addRegisterParameter.getId(), new TreeTrait.SumOverTreeDA(da));
+
+                    historyRegisterNumber = numRegisters; // Record the complete history for this register
+                    ((UniformizedSubstitutionModel) mjModel).setSaveCompleteHistory(true);
 
                     if (useCompactHistory && logHistory) {
 
@@ -305,15 +307,12 @@ public class MarkovJumpsBeagleTreeLikelihood extends AncestralStateBeagleTreeLik
                             }
                         });
                     }
-                    
-                    numRegisters++;
+                } else if (isEpochModel) {
+                    ((UniformizedSubstitutionModel) mjModel).setSaveCompleteHistory(true);
                 }
-                
-//                 else {
-//                     throw new RuntimeException("Only one complete history per markovJumpTreeLikelihood is allowed");
-//                 }
             }
 
+            numRegisters++;
         } // End of loop over branch models
     }
 
@@ -446,19 +445,15 @@ public class MarkovJumpsBeagleTreeLikelihood extends AncestralStateBeagleTreeLik
                     if (useUniformization) {
                         computeSampledMarkovJumpsForBranch(((UniformizedSubstitutionModel) thisMarkovJumps), substTime,
                                 branchRate, childNum, parentStates, childStates, parentTime, childTime, probabilities, scaleByTime[r],
-                                expectedJumps.get(0), rateCategory, 
+                                expectedJumps.get(r), rateCategory, 
                                 (branchModel instanceof EpochBranchModel) || r == historyRegisterNumber);
                     } else {
                         computeIntegratedMarkovJumpsForBranch(thisMarkovJumps, substTime, branchRate, childNum, parentStates,
                                 childStates, probabilities, condJumps, scaleByTime[r], expectedJumps.get(r), rateCategory);
                     }
-                } else {
-                    // Fill with zeros
-                    double[] result = expectedJumps.get(r)[childNum];
-                    Arrays.fill(result, 0.0);
                 }
             }
-        } else {
+        } else if (markovjumps.size() > 0) {
         
             // compute time for each piece
             int npieces = combinedWeights.size();
@@ -517,14 +512,12 @@ public class MarkovJumpsBeagleTreeLikelihood extends AncestralStateBeagleTreeLik
             }
             
             for (int j = 0; j < npieces; j++) {
-                
                 int r = branchModelNumber.indexOf(combinedMatrixOrder.get(j));
                 MarkovJumpsSubstitutionModel thisMarkovJumps = markovjumps.get(r);
                 
                 computeSampledMarkovJumpsForBranch(((UniformizedSubstitutionModel) thisMarkovJumps), substTimes[j],
                             combinedRates.get(j), childNum, parentStatesAll[j], childStatesAll[j], parentTimes[j], childTimes[j], probabilitiesAlongBranch.get(j), scaleByTime[r],
-                            expectedJumps.get(0), rateCategory, true);
-            
+                            expectedJumps.get(r), rateCategory, true);
             }
         }
         
@@ -536,7 +529,6 @@ public class MarkovJumpsBeagleTreeLikelihood extends AncestralStateBeagleTreeLik
                 histories[childNum][j] += '}';
             }
         }
-        
     }
 
     private void computeSampledMarkovJumpsForBranch(UniformizedSubstitutionModel thisMarkovJumps,

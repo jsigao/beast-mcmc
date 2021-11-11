@@ -25,6 +25,11 @@
 
 package dr.evomodel.substmodel;
 
+import cern.colt.matrix.DoubleMatrix2D;
+import cern.colt.matrix.impl.DenseDoubleMatrix2D;
+import cern.colt.matrix.linalg.Algebra;
+import cern.colt.matrix.linalg.LUDecomposition;
+
 import dr.evolution.datatype.DataType;
 import dr.inference.loggers.LogColumn;
 import dr.inference.loggers.NumberColumn;
@@ -32,6 +37,7 @@ import dr.inference.model.BayesianStochasticSearchVariableSelection;
 import dr.inference.model.Likelihood;
 import dr.inference.model.Model;
 import dr.inference.model.Parameter;
+import dr.inference.model.Variable;
 import dr.math.matrixAlgebra.Vector;
 import dr.util.Citable;
 import dr.util.Citation;
@@ -45,11 +51,13 @@ import java.util.*;
 public class ComplexSubstitutionModel extends GeneralSubstitutionModel implements Likelihood, Citable {
 
     public ComplexSubstitutionModel(String name, DataType dataType, FrequencyModel freqModel, Parameter parameter) {
-        super(name, dataType, null, parameter, -1);
+        super(name, dataType, freqModel, parameter, -1);
         probability = new double[stateCount * stateCount];
         
-        compFreqModel = new ComplexFrequencyModel("complex", dataType, ratesParameter);
-        addModel(compFreqModel);
+        stationaryDistribution = new double[stateCount];
+        storedStationaryDistribution = new double[stateCount];
+        stationaryDistributionKnown = false;
+        storedStationaryDistributionKnown = false;
     }
 
     @Override
@@ -77,13 +85,41 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
     protected EigenSystem getDefaultEigenSystem(int stateCount) {
         return new ComplexColtEigenSystem(stateCount);
     }
-    
-    public FrequencyModel getFrequencyModel() {
-        return compFreqModel;
+
+    private void computeStationaryDistribution(double[] statDistr) {
+        // Uses an LU decomposition to solve Q^t \pi = 0 and \sum \pi_i = 1
+
+        double[][] mat = getRelativeRateMatrix();
+        DoubleMatrix2D mat2 = new DenseDoubleMatrix2D(stateCount + 1, stateCount);
+        for (int i = 0; i < stateCount; ++i) {
+            for (int j = 0; j < stateCount; ++j) {
+                mat2.set(j, i, mat[i][j]); // Transposed
+            }
+        }
+        // Add row for sum-to-one constraint
+        for (int i = 0; i < stateCount; ++i) {
+            mat2.set(stateCount, i, 1.0);
+        }
+
+        LUDecomposition decomp = new LUDecomposition(mat2);
+        DoubleMatrix2D x = new DenseDoubleMatrix2D(stateCount + 1, 1);
+        x.set(stateCount, 0, 1.0);
+        DoubleMatrix2D y = decomp.solve(x);
+        for (int i = 0; i < stateCount; ++i) {
+            statDistr[i] = y.get(i, 0);
+        }
     }
     
     protected double[] getPi() {
-        return compFreqModel.getFrequencies();
+        return getFrequencies();
+    }
+    
+    public double[] getFrequencies() {
+        if (!stationaryDistributionKnown) {
+            computeStationaryDistribution(stationaryDistribution);
+            stationaryDistributionKnown = true;
+        }
+        return stationaryDistribution;
     }
 
     /**
@@ -173,6 +209,14 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
         for (int i = 0; i < rates.length; i++)
             rates[i] = ratesParameter.getParameterValue(i);
     }
+    
+    protected double[][] getRelativeRateMatrix() {
+        setupRelativeRates(relativeRates);
+        double[][] mat = new double[stateCount][stateCount];
+        setupQMatrix(relativeRates, null, mat);
+        makeValid(mat, stateCount);
+        return mat;
+    }
 
     protected void setupQMatrix(double[] rates, double[] pi, double[][] matrix) {
         int i, j, k = 0;
@@ -217,6 +261,27 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
         if (BayesianStochasticSearchVariableSelection.Utils.connectedAndWellConditioned(probability, this))
             return 0;
         return Double.NEGATIVE_INFINITY;
+    }
+    
+    protected void handleVariableChangedEvent(Variable variable, int index, Parameter.ChangeType type) {
+        stationaryDistributionKnown = false;
+        super.handleVariableChangedEvent(variable, index, type);
+    }
+    
+    protected void storeState() {
+        System.arraycopy(stationaryDistribution, 0, storedStationaryDistribution, 0, stateCount);
+        storedStationaryDistributionKnown = stationaryDistributionKnown;
+        
+        super.storeState();
+    }
+    
+    protected void restoreState() {
+        double[] tmp = stationaryDistribution;
+        stationaryDistribution = storedStationaryDistribution;
+        storedStationaryDistribution = tmp;
+        stationaryDistributionKnown = storedStationaryDistributionKnown;
+
+        super.restoreState();
     }
 
     /**
@@ -316,5 +381,9 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
     }
 
     private boolean doNormalization = true;
-    protected FrequencyModel compFreqModel;
+    
+    private double[] stationaryDistribution;
+    private double[] storedStationaryDistribution;
+    private boolean stationaryDistributionKnown;
+    private boolean storedStationaryDistributionKnown;
 }
