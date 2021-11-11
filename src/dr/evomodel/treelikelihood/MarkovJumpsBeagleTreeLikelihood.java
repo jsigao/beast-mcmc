@@ -27,6 +27,7 @@ package dr.evomodel.treelikelihood;
 
 import dr.evomodel.branchmodel.BranchModel;
 import dr.evomodel.siteratemodel.SiteRateModel;
+import dr.evomodel.branchmodel.EpochBranchModel;
 import dr.evomodel.substmodel.MarkovJumpsSubstitutionModel;
 import dr.evomodel.substmodel.SubstitutionModel;
 import dr.evomodel.substmodel.UniformizedSubstitutionModel;
@@ -105,7 +106,7 @@ public class MarkovJumpsBeagleTreeLikelihood extends AncestralStateBeagleTreeLik
                 addRegisterParameter.getDimension() != stateCount * stateCount) ||
                 (type == MarkovJumpsType.REWARDS &&
                         addRegisterParameter.getDimension() != stateCount)
-                ) {
+        ) {
             throw new RuntimeException("Register parameter of wrong dimension");
         }
         addVariable(addRegisterParameter);
