@@ -97,7 +97,7 @@ public abstract class BaseSubstitutionModel extends AbstractModel
             this.freqModel = freqModel;
             addModel(freqModel);
 
-            if (!(freqModel instanceof CovarionFrequencyModel || freqModel instanceof ComplexFrequencyModel)) {
+            if (!(freqModel instanceof CovarionFrequencyModel)) {
                 checkFrequencies();
             }
         }
