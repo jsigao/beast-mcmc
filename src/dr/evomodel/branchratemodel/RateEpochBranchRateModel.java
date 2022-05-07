@@ -123,6 +123,7 @@ public class RateEpochBranchRateModel extends AbstractBranchRateModel {
         throw new IllegalArgumentException("root node doesn't have a rate!");
     }
     
+    @Override
     public Mapping getBranchRateModelMapping(final Tree tree, final NodeRef node) {
         
         NodeRef parent = tree.getParent(node);
@@ -145,16 +146,19 @@ public class RateEpochBranchRateModel extends AbstractBranchRateModel {
 
             // Now walk up the branch until we reach the last epoch or the height of the parent
             while (i < timeParameters.length && height1 > timeParameters[i].getParameterValue(0)) {
-                // add the rate for that epoch multiplied by the time spent at that rate
-                weightList.add( timeParameters[i].getParameterValue(0) - lastHeight );
-                rateList.add( rateParameters[i].getParameterValue(0) );
+                // insert each epoch that this branch overlaps with to the list,
+                // ordered from parent (rootward) to child (tipward),
+                // as the transition probability matrix of a given branch is the product
+                // of matrices multiplying from parent to child
+                weightList.add( 0, timeParameters[i].getParameterValue(0) - lastHeight );
+                rateList.add( 0, rateParameters[i].getParameterValue(0) );
                 lastHeight = timeParameters[i].getParameterValue(0);
                 i++;
             }
 
             // Add that last rate segment
-            weightList.add( height1 - lastHeight );
-            rateList.add( rateParameters[i].getParameterValue(0) );
+            weightList.add( 0, height1 - lastHeight );
+            rateList.add( 0, rateParameters[i].getParameterValue(0) );
 
         } else {
             throw new IllegalArgumentException("root node doesn't have a rate!");
@@ -167,22 +171,19 @@ public class RateEpochBranchRateModel extends AbstractBranchRateModel {
         final double[] rates = new double[rateList.size()];
         final double[] weights = new double[weightList.size()];
         for (int i = 0; i < weightList.size(); i++) {
-        // here we need to reverse the order as we were traversing from child to parent
-        // but the transition probability matrix of a given branch should be the product
-        // of matrices multiplying from parent to child
-            rates[i] = rateList.get(rateList.size() - (i + 1));
-            weights[i] = weightList.get(weightList.size() - (i + 1));
+            rates[i] = rateList.get(i);
+            weights[i] = weightList.get(i);
         }
         
         return new Mapping() {
-			public double[] getRates() {
-				return rates;
-			}
+            public double[] getRates() {
+                return rates;
+            }
 
-			public double[] getWeights() {
-				return weights;
-			}
-		};
+            public double[] getWeights() {
+                return weights;
+            }
+        };
     }
 
     protected double normalizeRate(double rate) {

@@ -96,16 +96,19 @@ public class EpochBranchModel extends AbstractModel implements BranchModel, Cita
 
         // find the epoch that the parent height is in...
         while (epoch < epochCount && parentHeight > transitionTimes[epoch]) {
-            weightList.add( transitionTimes[epoch] - currentHeight );
-            orderList.add(epoch);
+            // insert each epoch to the list so that it is ordered from parent to child
+            // as the transition probability matrix of a given branch is the product
+            // of matrices multiplying from parent to child
+            weightList.add( 0, transitionTimes[epoch] - currentHeight );
+            orderList.add(0, epoch);
 
             currentHeight = transitionTimes[epoch];
 
             epoch ++;
         }
 
-        weightList.add( parentHeight - currentHeight );
-        orderList.add(epoch);
+        weightList.add( 0, parentHeight - currentHeight );
+        orderList.add(0, epoch);
 
 
         if (orderList.size() == 0) {
@@ -115,11 +118,8 @@ public class EpochBranchModel extends AbstractModel implements BranchModel, Cita
         final int[] order = new int[orderList.size()];
         final double[] weights = new double[weightList.size()];
         for (int i = 0; i < orderList.size(); i++) {
-        // here we need to reverse the order as we were traversing from child to parent
-        // but the transition probability matrix of a given branch should be the product
-        // of matrices multiplying from parent to child
-            order[i] = orderList.get(orderList.size() - (i + 1));
-            weights[i] = weightList.get(orderList.size() - (i + 1));
+            order[i] = orderList.get(i);
+            weights[i] = weightList.get(i);
         }
 
         return new Mapping() {
