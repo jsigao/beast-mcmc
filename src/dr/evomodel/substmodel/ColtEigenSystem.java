@@ -43,7 +43,7 @@ public class ColtEigenSystem implements EigenSystem {
         this(stateCount, defaultCheckConditioning, defaultMaxConditionNumber, defaultMaxIterations);
     }
 
-    public ColtEigenSystem(int stateCount, boolean checkConditioning, int maxConditionNumber, int maxIterations) {
+    public ColtEigenSystem(int stateCount, boolean checkConditioning, double maxConditionNumber, int maxIterations) {
         this.stateCount = stateCount;
         this.checkConditioning = checkConditioning;
         this.maxConditionNumber = maxConditionNumber;
@@ -207,7 +207,7 @@ public class ColtEigenSystem implements EigenSystem {
     }
 
     private boolean checkConditioning;
-    private int maxConditionNumber;
+    private double maxConditionNumber;
     private int maxIterations;
 
     protected final int stateCount;
@@ -216,7 +216,7 @@ public class ColtEigenSystem implements EigenSystem {
     private static final Algebra alegbra = new Algebra(minProb);
 
     public static final boolean defaultCheckConditioning = true;
-    public static final int defaultMaxConditionNumber = 1000000;
+    public static final double defaultMaxConditionNumber = 1000000;
     public static final int defaultMaxIterations = 1000000;
 
 }

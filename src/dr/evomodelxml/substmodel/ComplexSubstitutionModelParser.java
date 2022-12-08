@@ -52,6 +52,8 @@ public class ComplexSubstitutionModelParser extends AbstractXMLObjectParser {
     public static final String CHECK_CONDITIONING = "checkConditioning";
     public static final String NORMALIZED = "normalized";
     public static final String COMPUTE_STATIONARY = "computeStationary";
+    public static final String MAX_CONDITION_NUMBER = "maxConditionNumber";
+    public static final String MAX_ITERATIONS = "maxIterations";
     public static final String CHECK_QMAT_VIAGRAPH = "checkQmatReducibilityViaGraph";
 
     public static final int maxRandomizationTries = 100;
@@ -107,6 +109,8 @@ public class ComplexSubstitutionModelParser extends AbstractXMLObjectParser {
         }
 
         boolean checkConditioning = xo.getAttribute(CHECK_CONDITIONING, true);
+        double maxConditionNumber = xo.getAttribute(MAX_CONDITION_NUMBER, ColtEigenSystem.defaultMaxConditionNumber);
+        int maxIterations = xo.getAttribute(MAX_ITERATIONS, ColtEigenSystem.defaultMaxIterations);
         
         ComplexSubstitutionModel model;
 
@@ -114,7 +118,7 @@ public class ComplexSubstitutionModelParser extends AbstractXMLObjectParser {
         if (!xo.hasChildNamed(INDICATOR)) {
             model = new ComplexSubstitutionModel(COMPLEX_SUBSTITUTION_MODEL, dataType, freqModel, ratesParameter) {
                 protected EigenSystem getDefaultEigenSystem(int stateCount) {
-                    return new ComplexColtEigenSystem(stateCount, checkConditioning, ColtEigenSystem.defaultMaxConditionNumber, ColtEigenSystem.defaultMaxIterations);
+                    return new ComplexColtEigenSystem(stateCount, checkConditioning, maxConditionNumber, maxIterations);
                 }
             };
         } else {
@@ -146,7 +150,7 @@ public class ComplexSubstitutionModelParser extends AbstractXMLObjectParser {
 
             model = new SVSComplexSubstitutionModel(SVS_COMPLEX_SUBSTITUTION_MODEL, dataType, freqModel, ratesParameter, indicatorParameter) {
                 protected EigenSystem getDefaultEigenSystem(int stateCount) {
-                    return new ComplexColtEigenSystem(stateCount, checkConditioning, ColtEigenSystem.defaultMaxConditionNumber, ColtEigenSystem.defaultMaxIterations);
+                    return new ComplexColtEigenSystem(stateCount, checkConditioning, maxConditionNumber, maxIterations);
                 }
             };
             
@@ -222,6 +226,8 @@ public class ComplexSubstitutionModelParser extends AbstractXMLObjectParser {
             AttributeRule.newBooleanRule(CHECK_CONDITIONING, true),
             AttributeRule.newBooleanRule(NORMALIZED, true),
             AttributeRule.newBooleanRule(COMPUTE_STATIONARY, true),
+            AttributeRule.newDoubleRule(MAX_CONDITION_NUMBER, true),
+            AttributeRule.newIntegerRule(MAX_ITERATIONS, true),
             AttributeRule.newBooleanRule(CHECK_QMAT_VIAGRAPH, true),
     };
 }

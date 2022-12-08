@@ -39,7 +39,7 @@ public class ComplexColtEigenSystem extends ColtEigenSystem {
         super(stateCount);
     }
 
-    public ComplexColtEigenSystem(int stateCount, boolean checkConditioning, int maxConditionNumber, int maxIterations) {
+    public ComplexColtEigenSystem(int stateCount, boolean checkConditioning, double maxConditionNumber, int maxIterations) {
         super(stateCount, checkConditioning, maxConditionNumber, maxIterations);
     }
 
