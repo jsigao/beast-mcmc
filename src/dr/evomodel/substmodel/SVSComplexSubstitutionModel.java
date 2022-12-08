@@ -97,6 +97,15 @@ public class SVSComplexSubstitutionModel extends ComplexSubstitutionModel implem
     public Model getModel() {
         return this;
     }
+    
+    public double getLogLikelihood() {
+        if (!checkQmatReducibilityViaGraph) {
+            super.getLogLikelihood();
+        }
+        if (BayesianStochasticSearchVariableSelection.Utils.isStronglyConnectedMat(indicatorsParameter.getParameterValues(), stateCount, false))
+            return 0;
+        return Double.NEGATIVE_INFINITY;
+    }
 
     /**
      * Forces a complete recalculation of the likelihood next time getLikelihood is called
@@ -120,8 +129,13 @@ public class SVSComplexSubstitutionModel extends ComplexSubstitutionModel implem
     public void setUsed() {
         isUsed = true;
     }
+    
+    public void setCheckQmatReducibilityViaGraph(boolean checkQmatReducibilityViaGraph) {
+        this.checkQmatReducibilityViaGraph = checkQmatReducibilityViaGraph;
+    }
 
     private boolean isUsed = false;
+    private boolean checkQmatReducibilityViaGraph = false;
 
     private double[] probability = null;
 

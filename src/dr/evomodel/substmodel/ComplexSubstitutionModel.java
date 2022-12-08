@@ -220,7 +220,12 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
     protected double[][] getRelativeRateMatrix() {
         setupRelativeRates(relativeRates);
         double[][] mat = new double[stateCount][stateCount];
-        setupQMatrix(relativeRates, null, mat);
+        if (computeStationary) {
+            setupQMatrix(relativeRates, null, mat);
+        } else {
+            double[] pi = freqModel.getFrequencies();
+            setupQMatrix(relativeRates, pi, mat);
+        }
         makeValid(mat, stateCount);
         return mat;
     }
@@ -312,6 +317,9 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
 
     public void setNormalization(boolean doNormalization) {
         this.doNormalization = doNormalization;
+    }
+
+    public void setCheckQmatReducibilityViaGraph(boolean checkQmatReducibilityViaGraph) {
     }
 
     public void makeDirty() {

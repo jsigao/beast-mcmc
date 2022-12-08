@@ -101,6 +101,71 @@ public interface BayesianStochasticSearchVariableSelection {
         public static double getScalar() {
             return defaultExpectedMutations;
         }
+        
+        protected static void vecToMat(double[] vec, double[][] matrix, int dim, boolean reversible) {
+            int i, j, k = 0;
+            if (reversible) {
+                for (i = 0; i < dim; i++) {
+                    for (j = i + 1; j < dim; j++) {
+                        matrix[i][j] = vec[k];
+                        matrix[j][i] = vec[k];
+                        k++;
+                    }
+                }
+            } else {
+                for (i = 0; i < dim; i++) {
+                    for (j = i + 1; j < dim; j++) {
+                        matrix[i][j] = vec[k++];
+                    }
+                }
+                for (j = 0; j < dim; j++) {
+                    for (i = j + 1; i < dim; i++) {
+                        matrix[i][j] = vec[k++];
+                    }
+                }
+            }
+        }
+        
+        protected static void matTranspose(double[][] matrix, int dim) {
+            for (int i = 0; i < dim; i++) {
+                for (int j = i + 1; j < dim; j++) {
+                    double tmp = matrix[i][j];
+                    matrix[i][j] = matrix[j][i];
+                    matrix[j][i] = tmp;
+                }
+            }
+        }
+        
+        public static boolean isStronglyConnectedMat(double[] indicatorValues, int dim, boolean reversible) {
+            double[][] indicatorMatrix = new double[dim][dim];
+            vecToMat(indicatorValues, indicatorMatrix, dim, reversible);
+            
+            BitVector visited = new BitVector(dim);
+            boolean connected = true;
+            depthFirstSearchMat(0, visited, indicatorMatrix, dim);
+            connected = visited.cardinality() == dim;
+            if (connected == false || reversible) {
+                return connected;
+            }
+            
+            visited.clear();
+            matTranspose(indicatorMatrix, dim);
+            depthFirstSearchMat(0, visited, indicatorMatrix, dim);
+            connected = visited.cardinality() == dim;
+            return connected;
+        }
+        
+        private static void depthFirstSearchMat(int node, BitVector visited, double[][] indicatorMatrix, int dim) {
+            visited.set(node);
+            for (int v = 0; v < dim; v++) {
+                if (hasEdgeMat(node, v, indicatorMatrix) && !visited.get(v))
+                    depthFirstSearchMat(v, visited, indicatorMatrix, dim);
+            }
+        }
+        
+        private static boolean hasEdgeMat(int i, int j, double[][] indicatorMatrix) {
+            return i != j && indicatorMatrix[i][j] == 1;
+        }
 
         /* Determines if the graph is strongly connected, such that there exists
         * a directed path from any vertex to any other vertex

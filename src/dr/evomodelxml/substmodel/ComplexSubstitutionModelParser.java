@@ -52,6 +52,7 @@ public class ComplexSubstitutionModelParser extends AbstractXMLObjectParser {
     public static final String CHECK_CONDITIONING = "checkConditioning";
     public static final String NORMALIZED = "normalized";
     public static final String COMPUTE_STATIONARY = "computeStationary";
+    public static final String CHECK_QMAT_VIAGRAPH = "checkQmatReducibilityViaGraph";
 
     public static final int maxRandomizationTries = 100;
 
@@ -109,21 +110,18 @@ public class ComplexSubstitutionModelParser extends AbstractXMLObjectParser {
         
         ComplexSubstitutionModel model;
 
+        Parameter indicatorParameter = null;
         if (!xo.hasChildNamed(INDICATOR)) {
-            if (!checkConditioning) {
-                model = new ComplexSubstitutionModel(COMPLEX_SUBSTITUTION_MODEL, dataType, freqModel, ratesParameter) {
-                    protected EigenSystem getDefaultEigenSystem(int stateCount) {
-                        return new ComplexColtEigenSystem(stateCount, false, ColtEigenSystem.defaultMaxConditionNumber, ColtEigenSystem.defaultMaxIterations);
-                    }
-                };
-            } else {
-                model = new ComplexSubstitutionModel(COMPLEX_SUBSTITUTION_MODEL, dataType, freqModel, ratesParameter);
-            }
+            model = new ComplexSubstitutionModel(COMPLEX_SUBSTITUTION_MODEL, dataType, freqModel, ratesParameter) {
+                protected EigenSystem getDefaultEigenSystem(int stateCount) {
+                    return new ComplexColtEigenSystem(stateCount, checkConditioning, ColtEigenSystem.defaultMaxConditionNumber, ColtEigenSystem.defaultMaxIterations);
+                }
+            };
         } else {
             
             cxo = xo.getChild(INDICATOR);
 
-            Parameter indicatorParameter = (Parameter) cxo.getChild(Parameter.class);
+            indicatorParameter = (Parameter) cxo.getChild(Parameter.class);
             if (indicatorParameter == null || ratesParameter == null || indicatorParameter.getDimension() != ratesParameter.getDimension())
                 throw new XMLParseException("Rates and indicator parameters in " + getParserName() + " element must be the same dimension.");
 
@@ -146,15 +144,24 @@ public class ComplexSubstitutionModelParser extends AbstractXMLObjectParser {
                 }
             }
 
-            if (!checkConditioning) {
-                model = new SVSComplexSubstitutionModel(SVS_COMPLEX_SUBSTITUTION_MODEL, dataType, freqModel, ratesParameter, indicatorParameter) {
-                    protected EigenSystem getDefaultEigenSystem(int stateCount) {
-                        return new ComplexColtEigenSystem(stateCount, false, ColtEigenSystem.defaultMaxConditionNumber, ColtEigenSystem.defaultMaxIterations);
-                    }
-                };
-            } else {
-                model = new SVSComplexSubstitutionModel(SVS_COMPLEX_SUBSTITUTION_MODEL, dataType, freqModel, ratesParameter, indicatorParameter);
+            model = new SVSComplexSubstitutionModel(SVS_COMPLEX_SUBSTITUTION_MODEL, dataType, freqModel, ratesParameter, indicatorParameter) {
+                protected EigenSystem getDefaultEigenSystem(int stateCount) {
+                    return new ComplexColtEigenSystem(stateCount, checkConditioning, ColtEigenSystem.defaultMaxConditionNumber, ColtEigenSystem.defaultMaxIterations);
+                }
+            };
+            
+            if (xo.hasAttribute(CHECK_QMAT_VIAGRAPH)) {
+                model.setCheckQmatReducibilityViaGraph(xo.getAttribute(CHECK_QMAT_VIAGRAPH, false));
+                Logger.getLogger("dr.app.beagle.evomodel").info("\tCheck the reducibility of the Q matrix by checking if the underlying graph is strongly connected.");
             }
+        }
+        
+        if (!xo.getAttribute(NORMALIZED, true)) {
+            model.setNormalization(false);
+            Logger.getLogger("dr.app.beagle.evomodel").info("\tNormalization: false");
+        }
+        
+        if (xo.hasChildNamed(INDICATOR)) {
             boolean randomize = xo.getAttribute(RANDOMIZE, false);
             if (randomize) {
                 // Randomization may need multiple tries
@@ -171,10 +178,6 @@ public class ComplexSubstitutionModelParser extends AbstractXMLObjectParser {
             }
         }
         
-        if (!xo.getAttribute(NORMALIZED, true)) {
-            model.setNormalization(false);
-            Logger.getLogger("dr.app.beagle.evomodel").info("\tNormalization: false");
-        }
         Logger.getLogger("dr.app.beagle.evomodel").info("\t\tPlease cite: Edwards, Suchard et al. (2011)\n");
         return model;
     }
@@ -219,5 +222,6 @@ public class ComplexSubstitutionModelParser extends AbstractXMLObjectParser {
             AttributeRule.newBooleanRule(CHECK_CONDITIONING, true),
             AttributeRule.newBooleanRule(NORMALIZED, true),
             AttributeRule.newBooleanRule(COMPUTE_STATIONARY, true),
+            AttributeRule.newBooleanRule(CHECK_QMAT_VIAGRAPH, true),
     };
 }
