@@ -122,18 +122,5 @@ public class TipBranchRateModel extends AbstractBranchRateModel {
 
         }
     }
-    
-    public Mapping getBranchRateModelMapping(final Tree tree, final NodeRef node) {
-        
-        return new Mapping() {
-			public double[] getRates() {
-				return new double[] { getBranchRate(tree, node) };
-			}
-
-			public double[] getWeights() {
-				return new double[] { 1.0 };
-			}
-		};
-    }
 
 }

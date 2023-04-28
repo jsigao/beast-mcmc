@@ -133,12 +133,6 @@ public class GeneralSubstitutionModel extends BaseSubstitutionModel {
         if (doNormalization) {
             norm = super.getNormalizationValue(matrix, pi);
         }
-//            return super.getNormalizationValue(matrix, pi);
-//        } else {
-//            return 1.0;
-//        }
-//        System.err.println("norm = " + doNormalization + " " + norm);
-//        System.err.println(new Matrix(matrix));
         return norm;
     }
 

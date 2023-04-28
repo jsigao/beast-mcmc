@@ -406,19 +406,6 @@ public class CountableMixtureBranchRates extends AbstractBranchRateModel impleme
         }
         return effect;
     }
-    
-    public Mapping getBranchRateModelMapping(final Tree tree, final NodeRef node) {
-        
-        return new Mapping() {
-			public double[] getRates() {
-				return new double[] { getBranchRate(tree, node) };
-			}
-
-			public double[] getWeights() {
-				return new double[] { 1.0 };
-			}
-		};
-    }
 
     private final Helper helper = new Helper();
 

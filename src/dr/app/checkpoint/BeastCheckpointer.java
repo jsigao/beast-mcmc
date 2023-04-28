@@ -212,8 +212,8 @@ public class BeastCheckpointer implements StateLoaderSaver {
                                 "Try resuming the analysis by using the same starting seed as for the original BEAST run.");
                     } else {
                         System.out.println("Saved lnL does not match recomputed value for loaded state: stored lnL: " + savedLnL +
-                        ", recomputed lnL: " + lnL + " (difference " + (savedLnL - lnL) + ")." +
-                        "\nThreshold of " + threshold + " for restarting analysis not exceeded; continuing ...");
+                                ", recomputed lnL: " + lnL + " (difference " + (savedLnL - lnL) + ")." +
+                                "\nThreshold of " + threshold + " for restarting analysis not exceeded; continuing ...");
                     }
                 }
 
@@ -286,7 +286,9 @@ public class BeastCheckpointer implements StateLoaderSaver {
             //check up front if there are any TreeParameterModel objects
             for (Model model : Model.CONNECTED_MODEL_SET) {
                 if (model instanceof TreeParameterModel) {
-                    //System.out.println("\nDetected TreeParameterModel: " + ((TreeParameterModel) model).toString());
+                    if (DEBUG) {
+                        System.out.println("\nSave TreeParameterModel: " + model.getClass().getSimpleName());
+                    }
                     traitModels.add((TreeParameterModel) model);
                 }
             }
@@ -503,7 +505,7 @@ public class BeastCheckpointer implements StateLoaderSaver {
 
             // load the tree models last as we get the node heights from the tree (not the parameters which
             // which may not be associated with the right node
-            Set<String> expectedTreeModelNames = new HashSet<String>();
+            Set<String> expectedTreeModelNames = new LinkedHashSet<>();
 
             //store list of TreeModels for debugging purposes
             ArrayList<TreeModel> treeModelList = new ArrayList<TreeModel>();
@@ -523,11 +525,21 @@ public class BeastCheckpointer implements StateLoaderSaver {
                         }
                         System.out.println();
                     }
+                } else {
+                    if (DEBUG) {
+                        System.out.println("Not a TreeModel: " + model.getModelName());
+                    }
                 }
 
                 //first add all TreeParameterModels to a list
                 if (model instanceof TreeParameterModel) {
+                    if (DEBUG) {
+                        System.out.println("\nLoad TreeParameterModel: " + model.getClass().getSimpleName());
+                    }
                     traitModels.add((TreeParameterModel)model);
+                    if (DEBUG) {
+                        System.out.println("TreeParameterModel: " + model.getModelName());
+                    }
                 }
 
             }
@@ -585,6 +597,9 @@ public class BeastCheckpointer implements StateLoaderSaver {
                         int edgeCount = Integer.parseInt(fields[0]);
                         if (DEBUG) {
                             System.out.println("edge count = " + edgeCount);
+                            System.out.println("model: " + model.getId());
+                            System.out.println("linkedModels size = " + linkedModels.size());
+                            System.out.println(linkedModels.get(model.getId()));
                         }
 
                         //create data matrix of doubles to store information from list of TreeParameterModels
@@ -657,7 +672,7 @@ public class BeastCheckpointer implements StateLoaderSaver {
             if (DEBUG) {
                 System.out.println("\nDouble checking:");
                 for (Parameter parameter : Parameter.CONNECTED_PARAMETER_SET) {
-                    if (parameter.getParameterName().equals("branchRates.categories.rootNodeNumber")) {
+                    if (parameter.getParameterName() != null && parameter.getParameterName().equals("branchRates.categories.rootNodeNumber")) {
                         System.out.println(parameter.getParameterName() + ": " + parameter.getParameterValue(0));
                     }
                 }

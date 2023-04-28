@@ -137,19 +137,6 @@ public class RelaxedDriftModel extends AbstractBranchRateModel
         }
         return branchRates[node.getNumber()];
     }
-    
-    public Mapping getBranchRateModelMapping(final Tree tree, final NodeRef node) {
-        
-        return new Mapping() {
-			public double[] getRates() {
-				return new double[] { getBranchRate(tree, node) };
-			}
-
-			public double[] getWeights() {
-				return new double[] { 1.0 };
-			}
-		};
-    }
 
     private void calculateBranchRates(TreeModel tree) {
         branchRates[tree.getRoot().getNumber()] = getVariable(tree, tree.getRoot());

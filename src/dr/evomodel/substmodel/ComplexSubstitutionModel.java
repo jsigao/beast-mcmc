@@ -320,6 +320,11 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
     }
 
     public void setCheckQmatReducibilityViaGraph(boolean checkQmatReducibilityViaGraph) {
+
+    }
+
+    public boolean getNormalization() {
+        return doNormalization;
     }
 
     public void makeDirty() {

@@ -188,14 +188,14 @@ public class SericolaLatentStateBranchRateModel extends AbstractModelLikelihood 
     public Mapping getBranchRateModelMapping(final Tree tree, final NodeRef node) {
         
         return new Mapping() {
-			public double[] getRates() {
-				return new double[] { getBranchRate(tree, node) };
-			}
+            public double[] getRates() {
+                return new double[] { getBranchRate(tree, node) };
+            }
 
-			public double[] getWeights() {
-				return new double[] { 1.0 };
-			}
-		};
+            public double[] getWeights() {
+                return new double[] { 1.0 };
+            }
+        };
     }
 
     public double getLatentProportion(Tree tree, NodeRef node) {

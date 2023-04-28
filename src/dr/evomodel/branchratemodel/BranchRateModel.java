@@ -42,7 +42,7 @@ public interface BranchRateModel extends Model, BranchRates, TreeTraitProvider, 
     // This is inherited from BranchRates:
     // double getBranchRate(Tree tree, NodeRef node);
     
-    /**
+     /**
      * Returns a mapping of branch rate models to the given branch. The Mapping
      * contains a list of branch rates in order from rootward to tipward
      * and a set of relative weights for each (may be times or proportions).
