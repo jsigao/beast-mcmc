@@ -27,6 +27,7 @@ package dr.evomodel.operators;
 
 import dr.evolution.tree.NodeRef;
 import dr.evolution.tree.Tree;
+import dr.evolution.tree.TreeUtils;
 import dr.evomodel.tree.DefaultTreeModel;
 import dr.evomodel.tree.TreeModel;
 import dr.evomodelxml.operators.SubtreeSlideOperatorParser;
@@ -34,7 +35,11 @@ import dr.inference.model.Statistic;
 import dr.inference.operators.*;
 import dr.math.MathUtils;
 
+import dr.inference.loggers.LogColumn;
+import dr.inference.loggers.Loggable;
+
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -55,6 +60,21 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
     private final boolean scaledDirichletBranches;
     private AdaptationMode mode = AdaptationMode.DEFAULT;
     private final double targetAcceptance;
+
+    private int nodeDistance;
+    private double[] nodeHeights = new double[3];
+    private int leafCounts;
+
+    private List<Integer> nodeDistanceAccept;
+    private List<Integer> nodeDistanceReject;
+    private List<Double> nodeHeight0Accept;
+    private List<Double> nodeHeight0Reject;
+    private List<Double> nodeHeight1Accept;
+    private List<Double> nodeHeight1Reject;
+    private List<Double> nodeHeight2Accept;
+    private List<Double> nodeHeight2Reject;
+    private List<Integer> leafCountsAccept;
+    private List<Integer> leafCountsReject;
 
     public SubtreeSlideOperator(DefaultTreeModel tree, double weight, double size, boolean gaussian,
                                 boolean swapRates, boolean swapTraits, boolean scaleDirichletBranches,
@@ -80,6 +100,17 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
 
         this.mode = mode;
         this.targetAcceptance = targetAcceptance;
+
+        nodeDistanceAccept = new ArrayList<Integer>();
+        nodeDistanceReject = new ArrayList<Integer>();
+        nodeHeight0Accept = new ArrayList<Double>();
+        nodeHeight0Reject = new ArrayList<Double>();
+        nodeHeight1Accept = new ArrayList<Double>();
+        nodeHeight1Reject = new ArrayList<Double>();
+        nodeHeight2Accept = new ArrayList<Double>();
+        nodeHeight2Reject = new ArrayList<Double>();
+        leafCountsAccept = new ArrayList<Integer>();
+        leafCountsReject = new ArrayList<Integer>();
     }
 
     /**
@@ -110,6 +141,12 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
         final double oldHeight = tree.getNodeHeight(iP);
         final double newHeight = oldHeight + delta;
 
+        nodeHeights[0] = tree.getNodeHeight(iP);
+        nodeHeights[1] = newHeight;
+        nodeHeights[2] = tree.getNodeHeight(i);
+        leafCounts = TreeUtils.getLeafCount(tree, i);
+        nodeDistance = 0;
+
         if (DEBUG) {
             System.out.println("\nSubTreeSlideOperator: oldTreeHeight = " + oldTreeHeight);
             System.out.println("Node selected: " + i + " ; delta = " + delta);
@@ -126,6 +163,7 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
                 while (tree.getNodeHeight(newParent) < newHeight) {
                     newChild = newParent;
                     newParent = tree.getParent(newParent);
+                    nodeDistance++;
                     if (newParent == null) break;
                 }
 
@@ -190,6 +228,7 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
 
             // 4.0 is it a valid move?
             if (tree.getNodeHeight(i) > newHeight) {
+                nodeDistance = -1;
                 return Double.NEGATIVE_INFINITY;
             }
 
@@ -205,6 +244,7 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
 
                 // if no valid destinations then return a failure
                 if (newChildren.size() == 0) {
+                    nodeDistance = -1;
                     return Double.NEGATIVE_INFINITY;
                 }
 
@@ -217,6 +257,7 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
                 }
                 NodeRef newChild = newChildren.get(childIndex);
                 NodeRef newParent = tree.getParent(newChild);
+                nodeDistance = getNodeDistance(tree, iP, newParent);
 
                 if (DEBUG) {
                     System.out.println("childIndex: " + childIndex);
@@ -375,6 +416,43 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
 
     public String getOperatorName() {
         return SubtreeSlideOperatorParser.SUBTREE_SLIDE + "(" + tree.getId() + ")";
+    }
+
+    public void accept(double deviation) {
+        super.accept(deviation);
+
+        nodeDistanceAccept.add(nodeDistance);
+        nodeHeight0Accept.add(nodeHeights[0]);
+        nodeHeight1Accept.add(nodeHeights[1]);
+        nodeHeight2Accept.add(nodeHeights[2]);
+        leafCountsAccept.add(leafCounts);
+    }
+
+    public void reject() {
+        super.reject();
+
+        nodeDistanceReject.add(nodeDistance);
+        nodeHeight0Reject.add(nodeHeights[0]);
+        nodeHeight1Reject.add(nodeHeights[1]);
+        nodeHeight2Reject.add(nodeHeights[2]);
+        leafCountsReject.add(leafCounts);
+    }
+
+    public LogColumn[] getColumns() {
+        List<LogColumn> columns = new ArrayList<LogColumn>(Arrays.asList(super.getColumns()));
+
+        columns.add(getOperatorColumnInt("nodeDistAcc", nodeDistanceAccept));
+        columns.add(getOperatorColumnInt("nodeDistRej", nodeDistanceReject));
+        columns.add(getOperatorColumnDouble("nodeheightP0Acc", nodeHeight0Accept));
+        columns.add(getOperatorColumnDouble("nodeheightP0Rej", nodeHeight0Reject));
+        columns.add(getOperatorColumnDouble("nodeheightP1Acc", nodeHeight1Accept));
+        columns.add(getOperatorColumnDouble("nodeheightP1Rej", nodeHeight1Reject));
+        columns.add(getOperatorColumnDouble("nodeheightCAcc", nodeHeight2Accept));
+        columns.add(getOperatorColumnDouble("nodeheightCRej", nodeHeight2Reject));
+        columns.add(getOperatorColumnInt("leafCountsAcc", leafCountsAccept));
+        columns.add(getOperatorColumnInt("leafCountsRej", leafCountsReject));
+
+        return columns.toArray(new LogColumn[columns.size()]);
     }
 
 }

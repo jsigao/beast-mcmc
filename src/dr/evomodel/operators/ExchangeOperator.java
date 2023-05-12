@@ -26,9 +26,20 @@
 package dr.evomodel.operators;
 
 import dr.evolution.tree.NodeRef;
+import dr.evolution.tree.TreeUtils;
 import dr.evomodel.tree.TreeModel;
 import dr.evomodel.treelikelihood.thorneytreelikelihood.ConstrainableTreeOperator;
 import dr.math.MathUtils;
+
+import dr.inference.loggers.LogColumn;
+import dr.inference.loggers.Loggable;
+
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Implements branch exchange operations. There is a NARROW and WIDE variety.
@@ -49,10 +60,43 @@ public class ExchangeOperator extends AbstractTreeOperator implements Constraina
 
     private double[] distances;
 
+    private int nodeDistance = 3;
+    private double pathLength;
+    private double[] nodeHeights = new double[2];
+    private int[] leafCounts = new int[2];
+
+    private List<Integer> nodeDistanceAccept;
+    private List<Integer> nodeDistanceReject;
+    private List<Double> pathLengthAccept;
+    private List<Double> pathLengthReject;
+    private List<Double> nodeHeight0Accept;
+    private List<Double> nodeHeight0Reject;
+    private List<Double> nodeHeight1Accept;
+    private List<Double> nodeHeight1Reject;
+    private List<Integer> leafCounts0Accept;
+    private List<Integer> leafCounts0Reject;
+    private List<Integer> leafCounts1Accept;
+    private List<Integer> leafCounts1Reject;
+
     public ExchangeOperator(int mode, TreeModel tree, double weight) {
         this.mode = mode;
         this.tree = tree;
         setWeight(weight);
+
+        if (mode != NARROW) {
+            nodeDistanceAccept = new ArrayList<Integer>();
+            nodeDistanceReject = new ArrayList<Integer>();
+        }
+        pathLengthAccept = new ArrayList<Double>();
+        pathLengthReject = new ArrayList<Double>();
+        nodeHeight0Accept = new ArrayList<Double>();
+        nodeHeight0Reject = new ArrayList<Double>();
+        nodeHeight1Accept = new ArrayList<Double>();
+        nodeHeight1Reject = new ArrayList<Double>();
+        leafCounts0Accept = new ArrayList<Integer>();
+        leafCounts0Reject = new ArrayList<Integer>();
+        leafCounts1Accept = new ArrayList<Integer>();
+        leafCounts1Reject = new ArrayList<Integer>();
     }
 
 
@@ -105,6 +149,12 @@ public class ExchangeOperator extends AbstractTreeOperator implements Constraina
 
         assert tree.getNodeHeight(i) <= tree.getNodeHeight(iGrandParent);
 
+        pathLength = tree.getBranchLength(i) + tree.getBranchLength(iParent) + tree.getBranchLength(iUncle);
+        nodeHeights[0] = tree.getNodeHeight(i);
+        nodeHeights[1] = tree.getNodeHeight(iUncle);
+        leafCounts[0] = TreeUtils.getLeafCount(tree, i);
+        leafCounts[1] = TreeUtils.getLeafCount(tree, iUncle);
+
         if( tree.getNodeHeight(iUncle) < tree.getNodeHeight(iParent) ) {
             exchangeNodes(tree, i, iUncle, iParent, iGrandParent);
 
@@ -138,6 +188,13 @@ public class ExchangeOperator extends AbstractTreeOperator implements Constraina
 
         final NodeRef iP = tree.getParent(i);
         final NodeRef jP = tree.getParent(j);
+
+        nodeDistance = getNodeDistance(tree, i, j);
+        pathLength = TreeUtils.getPathLength(tree, i, j);
+        nodeHeights[0] = tree.getNodeHeight(i);
+        nodeHeights[1] = tree.getNodeHeight(j);
+        leafCounts[0] = TreeUtils.getLeafCount(tree, i);
+        leafCounts[1] = TreeUtils.getLeafCount(tree, j);
 
         if( (iP != jP) && (i != jP) && (j != iP)
                 && (tree.getNodeHeight(j) < tree.getNodeHeight(iP))
@@ -175,7 +232,7 @@ public class ExchangeOperator extends AbstractTreeOperator implements Constraina
     private void calcDistances(NodeRef[] nodes, NodeRef ref) {
         distances = new double[nodes.length];
         for(int i = 0; i < nodes.length; i++) {
-            distances[i] = getNodeDistance(ref, nodes[i]) + 1;
+            distances[i] = getNodeDistance(tree, ref, nodes[i]) + 1;
         }
     }
 
@@ -200,26 +257,59 @@ public class ExchangeOperator extends AbstractTreeOperator implements Constraina
         return n;
     }
 
-    private int getNodeDistance(NodeRef i, NodeRef j) {
-        int count = 0;
-
-        while( i != j ) {
-            count++;
-            if( tree.getNodeHeight(i) < tree.getNodeHeight(j) ) {
-                i = tree.getParent(i);
-            } else {
-                j = tree.getParent(j);
-            }
-        }
-        return count;
-    }
-
     public int getMode() {
         return mode;
     }
 
     public String getOperatorName() {
         return ((mode == NARROW) ? "Narrow" : "Wide") + " Exchange" + "(" + tree.getId() + ")";
+    }
+
+    public void accept(double deviation) {
+        super.accept(deviation);
+
+        if (mode != NARROW) {
+            nodeDistanceAccept.add(nodeDistance);
+        }
+        pathLengthAccept.add(pathLength);
+        nodeHeight0Accept.add(nodeHeights[0]);
+        nodeHeight1Accept.add(nodeHeights[1]);
+        leafCounts0Accept.add(leafCounts[0]);
+        leafCounts1Accept.add(leafCounts[1]);
+    }
+
+    public void reject() {
+        super.reject();
+
+        if (mode != NARROW) {
+            nodeDistanceReject.add(nodeDistance);
+        }
+        pathLengthReject.add(pathLength);
+        nodeHeight0Reject.add(nodeHeights[0]);
+        nodeHeight1Reject.add(nodeHeights[1]);
+        leafCounts0Reject.add(leafCounts[0]);
+        leafCounts1Reject.add(leafCounts[1]);
+    }
+
+    public LogColumn[] getColumns() {
+        List<LogColumn> columns = new ArrayList<LogColumn>(Arrays.asList(super.getColumns()));
+
+        if (mode != NARROW) {
+            columns.add(getOperatorColumnInt("nodeDistAcc", nodeDistanceAccept));
+            columns.add(getOperatorColumnInt("nodeDistRej", nodeDistanceReject));
+        }
+        columns.add(getOperatorColumnDouble("pathLengthAcc", pathLengthAccept));
+        columns.add(getOperatorColumnDouble("pathLengthRej", pathLengthReject));
+        columns.add(getOperatorColumnDouble("nodeheight0Acc", nodeHeight0Accept));
+        columns.add(getOperatorColumnDouble("nodeheight0Rej", nodeHeight0Reject));
+        columns.add(getOperatorColumnDouble("nodeheight1Acc", nodeHeight1Accept));
+        columns.add(getOperatorColumnDouble("nodeheight1Rej", nodeHeight1Reject));
+        columns.add(getOperatorColumnInt("leafCounts0Acc", leafCounts0Accept));
+        columns.add(getOperatorColumnInt("leafCounts0Rej", leafCounts0Reject));
+        columns.add(getOperatorColumnInt("leafCounts1Acc", leafCounts1Accept));
+        columns.add(getOperatorColumnInt("leafCounts1Rej", leafCounts1Reject));
+
+        return columns.toArray(new LogColumn[columns.size()]);
     }
 
     public double getMinimumAcceptanceLevel() {

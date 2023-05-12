@@ -26,10 +26,18 @@
 package dr.evomodel.operators;
 
 import dr.evolution.tree.NodeRef;
+import dr.evolution.tree.TreeUtils;
 import dr.evomodel.tree.TreeModel;
 import dr.evomodel.treelikelihood.thorneytreelikelihood.ConstrainableTreeOperator;
 import dr.evomodelxml.operators.WilsonBaldingParser;
 import dr.math.MathUtils;
+
+import dr.inference.loggers.LogColumn;
+import dr.inference.loggers.Loggable;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Implements the unweighted wilson-balding branch swapping move.
@@ -41,10 +49,36 @@ public class WilsonBalding extends AbstractTreeOperator implements Constrainable
 
     private TreeModel tree = null;
 
+    private int nodeDistance;
+    private double pathLength;
+    private double[] nodeHeights = new double[2];
+    private int leafCounts;
+
+    private List<Integer> nodeDistanceAccept;
+    private List<Integer> nodeDistanceReject;
+    private List<Double> pathLengthAccept;
+    private List<Double> pathLengthReject;
+    private List<Double> nodeHeight0Accept;
+    private List<Double> nodeHeight0Reject;
+    private List<Double> nodeHeight1Accept;
+    private List<Double> nodeHeight1Reject;
+    private List<Integer> leafCountsAccept;
+    private List<Integer> leafCountsReject;
 
     public WilsonBalding(TreeModel tree, double weight) {
         this.tree = tree;
         setWeight(weight);
+
+        nodeDistanceAccept = new ArrayList<Integer>();
+        nodeDistanceReject = new ArrayList<Integer>();
+        pathLengthAccept = new ArrayList<Double>();
+        pathLengthReject = new ArrayList<Double>();
+        nodeHeight0Accept = new ArrayList<Double>();
+        nodeHeight0Reject = new ArrayList<Double>();
+        nodeHeight1Accept = new ArrayList<Double>();
+        nodeHeight1Reject = new ArrayList<Double>();
+        leafCountsAccept = new ArrayList<Integer>();
+        leafCountsReject = new ArrayList<Integer>();
     }
 
     public double doOperation(TreeModel tree) {
@@ -95,6 +129,12 @@ public class WilsonBalding extends AbstractTreeOperator implements Constrainable
             j = tree.getNode(MathUtils.nextInt(nodeCount));
             k = tree.getParent(j);
         }
+
+        nodeDistance = getNodeDistance(tree, i, j);
+        pathLength = TreeUtils.getPathLength(tree, i, j);
+        nodeHeights[0] = tree.getNodeHeight(iP);
+        nodeHeights[1] = -1;
+        leafCounts = TreeUtils.getLeafCount(tree, i);
 
         // disallow moves that change the root.
         if (j == tree.getRoot() || iP == tree.getRoot()) {
@@ -149,6 +189,7 @@ public class WilsonBalding extends AbstractTreeOperator implements Constrainable
         oldMinAge = Math.max(tree.getNodeHeight(i), tree.getNodeHeight(CiP));
         oldRange = tree.getNodeHeight(PiP) - oldMinAge;
         q = newRange / Math.abs(oldRange);
+        nodeHeights[1] = newAge;
         //System.out.println(newRange + "/" + oldRange + "=" + q);
 //		}
 
@@ -229,5 +270,42 @@ public class WilsonBalding extends AbstractTreeOperator implements Constrainable
 
     public String getOperatorName() {
         return WilsonBaldingParser.WILSON_BALDING + "(" + tree.getId() + ")";
+    }
+
+    public void accept(double deviation) {
+        super.accept(deviation);
+
+        nodeDistanceAccept.add(nodeDistance);
+        pathLengthAccept.add(pathLength);
+        nodeHeight0Accept.add(nodeHeights[0]);
+        nodeHeight1Accept.add(nodeHeights[1]);
+        leafCountsAccept.add(leafCounts);
+    }
+
+    public void reject() {
+        super.reject();
+
+        nodeDistanceReject.add(nodeDistance);
+        pathLengthReject.add(pathLength);
+        nodeHeight0Reject.add(nodeHeights[0]);
+        nodeHeight1Reject.add(nodeHeights[1]);
+        leafCountsReject.add(leafCounts);
+    }
+
+    public LogColumn[] getColumns() {
+        List<LogColumn> columns = new ArrayList<LogColumn>(Arrays.asList(super.getColumns()));
+
+        columns.add(getOperatorColumnInt("nodeDistAcc", nodeDistanceAccept));
+        columns.add(getOperatorColumnInt("nodeDistRej", nodeDistanceReject));
+        columns.add(getOperatorColumnDouble("pathLengthAcc", pathLengthAccept));
+        columns.add(getOperatorColumnDouble("pathLengthRej", pathLengthReject));
+        columns.add(getOperatorColumnDouble("nodeheightP0Acc", nodeHeight0Accept));
+        columns.add(getOperatorColumnDouble("nodeheightP0Rej", nodeHeight0Reject));
+        columns.add(getOperatorColumnDouble("nodeheightP1Acc", nodeHeight1Accept));
+        columns.add(getOperatorColumnDouble("nodeheightP1Rej", nodeHeight1Reject));
+        columns.add(getOperatorColumnInt("leafCountsAcc", leafCountsAccept));
+        columns.add(getOperatorColumnInt("leafCountsRej", leafCountsReject));
+
+        return columns.toArray(new LogColumn[columns.size()]);
     }
 }

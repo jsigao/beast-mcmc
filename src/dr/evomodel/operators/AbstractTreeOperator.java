@@ -29,6 +29,14 @@ import dr.evomodel.tree.TreeModel;
 import dr.evolution.tree.*;
 import dr.inference.operators.SimpleMCMCOperator;
 
+import dr.inference.loggers.LogColumn;
+import dr.inference.loggers.Loggable;
+import dr.inference.loggers.NumberColumn;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * @author Andrew Rambaut
  * @version $Id$
@@ -91,5 +99,86 @@ public abstract class AbstractTreeOperator extends SimpleMCMCOperator {
         } else {
             return tree.getChild(parent, 0);
         }
+    }
+
+    protected int getNodeDistance(Tree tree, NodeRef i, NodeRef j) {
+        int count = 0;
+
+        while( i != j ) {
+            count++;
+            if( tree.getNodeHeight(i) < tree.getNodeHeight(j) ) {
+                i = tree.getParent(i);
+            } else {
+                j = tree.getParent(j);
+            }
+        }
+        return count;
+    }
+
+    public String toStringStat(Integer[] v) {
+		StringBuilder sb = new StringBuilder("{");
+		for (int i = 0; i < v.length; i++) {
+            sb.append(v[i]);
+            if (i < v.length - 1) {
+                sb.append(",");
+            }
+        }
+        sb.append("}");
+        return sb.toString();
+	}
+
+    public String toStringStat(Double[] v) {
+		StringBuilder sb = new StringBuilder("{");
+		for (int i = 0; i < v.length; i++) {
+            NumberColumn column = new OperatorStatColumn(v[i].doubleValue());
+            sb.append(column.getFormatted());
+            if (i < v.length - 1) {
+                sb.append(",");
+            }
+        }
+        sb.append("}");
+        return sb.toString();
+	}
+
+    protected class OperatorStatColumn extends NumberColumn {
+        private final double value;
+
+		public OperatorStatColumn(double value) {
+			super("OperatorStatColumn", 4);
+			this.value = value;
+		}
+
+		@Override
+		public double getDoubleValue() {
+			return value;
+		}
+	}
+
+    public LogColumn getOperatorColumnInt(String label, List<Integer> statlist) {
+
+        LogColumn column = new LogColumn.Abstract(getOperatorName() + "_" + label) {
+            @Override
+            protected String getFormattedValue() {
+                Integer[] stats = statlist.toArray(new Integer[statlist.size()]);
+                statlist.clear();
+                return toStringStat(stats);
+            }
+        };
+
+        return column;
+    }
+
+    public LogColumn getOperatorColumnDouble(String label, List<Double> statlist) {
+
+        LogColumn column = new LogColumn.Abstract(getOperatorName() + "_" + label) {
+            @Override
+            protected String getFormattedValue() {
+                Double[] stats = statlist.toArray(new Double[statlist.size()]);
+                statlist.clear();
+                return toStringStat(stats);
+            }
+        };
+
+        return column;
     }
 }
