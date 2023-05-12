@@ -25,12 +25,16 @@
 
 package dr.inference.operators;
 
+import dr.inference.loggers.LogColumn;
+import dr.inference.loggers.Loggable;
+import dr.inference.loggers.NumberColumn;
 import dr.inference.model.Likelihood;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.logging.Logger;
 
-public abstract class SimpleMCMCOperator implements MCMCOperator {
+public abstract class SimpleMCMCOperator implements MCMCOperator, Loggable {
 
     private final static int SMOOTHED_ACCEPTANCE_WINDOW_SIZE = 100;
 
@@ -219,6 +223,36 @@ public abstract class SimpleMCMCOperator implements MCMCOperator {
     @Override
     public long getTotalCalculationCount() {
         return sumCalculationCount;
+    }
+
+    @Override
+    public LogColumn[] getColumns() {
+        LogColumn[] columns = new LogColumn[4];
+        columns[0] = new NumberColumn(getOperatorName()) {
+            @Override
+            public double getDoubleValue() {
+                return getAcceptanceProbability();
+            }
+        };
+        columns[1] = new NumberColumn(getOperatorName() + "_count") {
+            @Override
+            public double getDoubleValue() {
+                return getCount();
+            }
+        };
+        columns[2] = new NumberColumn(getOperatorName() + "_time") {
+            @Override
+            public double getDoubleValue() {
+                return getTotalEvaluationTime();
+            }
+        };
+        columns[3] = new NumberColumn(getOperatorName() + "_calcs") {
+            @Override
+            public double getDoubleValue() {
+                return getTotalCalculationCount();
+            }
+        };
+        return columns;
     }
 
     /**

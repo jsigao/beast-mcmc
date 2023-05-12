@@ -25,8 +25,16 @@
 
 package dr.inference.operators;
 
+import dr.inference.loggers.LogColumn;
+import dr.inference.loggers.Loggable;
+import dr.inference.loggers.NumberColumn;
+
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * @author Andrew Rambaut
@@ -79,6 +87,20 @@ public abstract class AbstractAdaptableOperator extends SimpleMCMCOperator imple
     @Override
     public final double getAdaptableParameter() {
         return getAdaptableParameterValue();
+    }
+
+    @Override
+    public LogColumn[] getColumns() {
+        List<LogColumn> columns = new ArrayList<LogColumn>(Arrays.asList(super.getColumns()));
+
+        columns.add(new NumberColumn(getOperatorName() + "_size") {
+            @Override
+            public double getDoubleValue() {
+                return getRawParameter();
+            }
+        });
+
+        return columns.toArray(new LogColumn[columns.size()]);
     }
 
     /**
