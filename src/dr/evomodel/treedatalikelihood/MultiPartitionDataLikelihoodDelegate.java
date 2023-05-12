@@ -1311,6 +1311,12 @@ public class MultiPartitionDataLikelihoodDelegate extends AbstractModel implemen
     protected void acceptState() {
     }
 
+    public double[] getSiteLogLikelihoods() {
+        double[] siteLogLikelihoods = new double[totalPatternCount];
+        beagle.getSiteLogLikelihoods(siteLogLikelihoods);
+        return siteLogLikelihoods;
+    }
+
     // **************************************************************
     // INSTANCE PROFILEABLE
     // **************************************************************

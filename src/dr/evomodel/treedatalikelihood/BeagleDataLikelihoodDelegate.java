@@ -1062,6 +1062,12 @@ public class BeagleDataLikelihoodDelegate extends AbstractModel implements DataL
         return partialBufferHelper.getBufferCount();
     }
 
+    public double[] getSiteLogLikelihoods() {
+        double[] siteLogLikelihoods = new double[patternCount];
+        beagle.getSiteLogLikelihoods(siteLogLikelihoods);
+        return siteLogLikelihoods;
+    }
+
     // **************************************************************
     // INSTANCE PROFILEABLE
     // **************************************************************

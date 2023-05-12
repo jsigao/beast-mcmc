@@ -26,12 +26,15 @@
 package dr.app.beagle.tools.parsers;
 
 import dr.evomodel.treelikelihood.BeagleTreeLikelihood;
+import dr.evomodel.treedatalikelihood.TreeDataLikelihood;
+import dr.inference.model.CompoundLikelihood;
 import dr.app.beagle.tools.SiteLogLikelihoodLogger;
 import dr.xml.AbstractXMLObjectParser;
 import dr.xml.ElementRule;
 import dr.xml.XMLObject;
 import dr.xml.XMLParseException;
 import dr.xml.XMLSyntaxRule;
+import dr.xml.XORRule;
 
 public class SiteLogLikelihoodLoggerParser extends AbstractXMLObjectParser {
 
@@ -41,22 +44,37 @@ public class SiteLogLikelihoodLoggerParser extends AbstractXMLObjectParser {
 	public Object parseXMLObject(XMLObject xo) throws XMLParseException {
 
 		SiteLogLikelihoodLogger siteLogLikelihoodLogger;
-		BeagleTreeLikelihood beagleTreeLikelihood = null;
 
-		for (int i = 0; i < xo.getChildCount(); i++) {
-			beagleTreeLikelihood = (BeagleTreeLikelihood) xo.getChild(i);
+		if (xo.getChild(BeagleTreeLikelihood.class) != null) {
+			BeagleTreeLikelihood treeLikelihood = (BeagleTreeLikelihood) xo.getChild(BeagleTreeLikelihood.class);
+			siteLogLikelihoodLogger = new SiteLogLikelihoodLogger(treeLikelihood);
+		} else if (xo.getChild(TreeDataLikelihood.class) != null) {
+			TreeDataLikelihood treeLikelihood = (TreeDataLikelihood) xo.getChild(TreeDataLikelihood.class);
+			siteLogLikelihoodLogger = new SiteLogLikelihoodLogger(treeLikelihood);
+		} else if (xo.getChild(CompoundLikelihood.class) != null) {
+			CompoundLikelihood compoundLikelihood = (CompoundLikelihood) xo.getChild(CompoundLikelihood.class);
+			siteLogLikelihoodLogger = new SiteLogLikelihoodLogger(compoundLikelihood);
+		} else {
+			throw new XMLParseException("No treeLikelihood or treeDatalikelihood available in siteLogLikelihood " + xo.getId());
 		}
-
-		siteLogLikelihoodLogger = new SiteLogLikelihoodLogger(
-				beagleTreeLikelihood);
 
 		return siteLogLikelihoodLogger;
 	}// END: parseXMLObject
 
 	@Override
 	public XMLSyntaxRule[] getSyntaxRules() {
-		return new XMLSyntaxRule[] { new ElementRule(BeagleTreeLikelihood.class) };
-	}// END: getSyntaxRules
+        return rules;
+    }// END: getSyntaxRules
+
+	private XMLSyntaxRule[] rules = new XMLSyntaxRule[] {
+		new XORRule(
+			new XMLSyntaxRule[]{
+				new ElementRule(BeagleTreeLikelihood.class),
+				new ElementRule(TreeDataLikelihood.class),
+				new ElementRule(CompoundLikelihood.class)
+			}
+		)
+    };
 
 	@Override
 	public String getParserName() {

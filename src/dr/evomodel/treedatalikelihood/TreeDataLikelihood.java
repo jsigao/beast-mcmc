@@ -364,6 +364,17 @@ public final class TreeDataLikelihood extends AbstractModelLikelihood implements
         likelihoodKnown = false;
     }
 
+    public double[] getSiteLogLikelihoods() {
+        getLogLikelihood();
+        if (likelihoodDelegate instanceof BeagleDataLikelihoodDelegate) {
+            return ((BeagleDataLikelihoodDelegate) likelihoodDelegate).getSiteLogLikelihoods();
+        } else if (likelihoodDelegate instanceof MultiPartitionDataLikelihoodDelegate) {
+            return ((MultiPartitionDataLikelihoodDelegate) likelihoodDelegate).getSiteLogLikelihoods();
+        } else {
+            return new double[0];
+        }
+    }
+
     // **************************************************************
     // Reportable IMPLEMENTATION
     // **************************************************************
