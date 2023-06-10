@@ -361,6 +361,11 @@ public class TopologyTracer {
             System.exit(1);
         }
 
+        if (arguments.hasOption("help")) {
+            printUsage(arguments);
+            System.exit(0);
+        }
+
         int burninStates = 0;
         int burninTrees = 0;
         if (arguments.hasOption("burnin")) {
