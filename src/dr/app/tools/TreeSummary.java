@@ -57,17 +57,27 @@ public class TreeSummary {
      * @param burninTrees
      * @param burninStates
      * @param posteriorLimit
+     * @param cladeFreqMin
+     * @param cladeFreqMax
+     * @param includeTips
      * @param inputFileName
      * @param outputFileName
+     * @param outputFileName2
      * @throws java.io.IOException
      */
     public TreeSummary(final int burninTrees,
-                       final int burninStates,
+                       final long burninStates,
                        double posteriorLimit,
+                       double cladeFreqMin,
+                       double cladeFreqMax,
+                       boolean includeTips,
                        boolean createSummaryTree,
                        boolean createCladeMap,
+                       boolean createCladeAttribute,
+                       String targetAttributeName,
                        String inputFileName,
-                       String outputFileName
+                       String outputFileName,
+                       String outputFileName2
     ) throws IOException {
 
         this.posteriorLimit = posteriorLimit;
@@ -94,14 +104,14 @@ public class TreeSummary {
             while (importer.hasTree()) {
                 Tree tree = importer.importNextTree();
 
-                int state = Integer.MAX_VALUE;
+                long state = Long.MAX_VALUE;
 
-                if (burninStates > 0) {
+                if (burninStates >= 0) {
                     // if burnin has been specified in states, try to parse it out...
                     String name = tree.getId().trim();
 
                     if (name != null && name.length() > 0 && name.startsWith("STATE_")) {
-                        state = Integer.parseInt(name.split("_")[1]);
+                        state = Long.parseLong(name.split("_")[1]);
                     }
                 }
 
@@ -114,7 +124,7 @@ public class TreeSummary {
                         burnin = totalTrees;
                     }
 
-                    cladeSystem.add(tree, true);
+                    cladeSystem.add(tree, includeTips);
 
                     totalTreesUsed += 1;
                 }
@@ -157,24 +167,40 @@ public class TreeSummary {
         progressStream.println("Total unique clades: " + cladeSystem.getCladeMap().keySet().size());
         progressStream.println();
 
-        if (createCladeMap) {
+        if (createCladeAttribute || createCladeMap) {
 
-            Map<BitSet, Integer> cladeCountMap = cladeSystem.getCladeCounts();
+            Map<BitSet, Integer> cladeCountMap = cladeSystem.getCladeCounts(cladeFreqMin, cladeFreqMax);
+            final PrintStream stream2 = outputFileName2 != null ?
+                    new PrintStream(new FileOutputStream(outputFileName2)) :
+                    System.out;
 
-            System.out.println("No.\tSize\tCred\tMembers");
+            // System.out.println("No.\tSize\tCred\tMembers");
+            // int n = 1;
+            // for (BitSet bits : cladeCountMap.keySet()) {
+            //     System.out.print(n);
+            //     System.out.print("\t");
+            //     System.out.print(bits.cardinality());
+            //     System.out.print("\t");
+            //     System.out.print(cladeSystem.getCladeCredibility(bits));
+            //     System.out.print("\t");
+            //     System.out.println(cladeSystem.getCladeString(bits));
+            //     n++;
+            // }
+            // System.out.println();
+            
+            stream2.println("No.\tSize\tCred\tMembers");
             int n = 1;
             for (BitSet bits : cladeCountMap.keySet()) {
-                System.out.print(n);
-                System.out.print("\t");
-                System.out.print(bits.cardinality());
-                System.out.print("\t");
-                System.out.print(cladeSystem.getCladeCredibility(bits));
-                System.out.print("\t");
-                System.out.println(cladeSystem.getCladeString(bits));
+                stream2.print(n);
+                stream2.print("\t");
+                stream2.print(bits.cardinality());
+                stream2.print("\t");
+                stream2.print(cladeSystem.getCladeCredibility(bits));
+                stream2.print("\t");
+                stream2.println(cladeSystem.getCladeString(bits));
                 n++;
             }
-            System.out.println();
-
+            stream2.close();
 
             progressStream.println("Reading trees...");
             progressStream.println("0              25             50             75            100");
@@ -183,40 +209,96 @@ public class TreeSummary {
             stepSize = totalTrees / 60;
 
             fileReader = new FileReader(inputFileName);
+
+            boolean targetAttributeFound = false;
+            if (createCladeAttribute) {
+                if (targetAttributeName.equals("height") || targetAttributeName.equals("length")) {
+                    targetAttributeFound = true;
+                }
+
+                if (!targetAttributeFound) {
+                    fileReader = new FileReader(inputFileName);
+                    importer = new NexusImporter(fileReader);
+                    try {
+                        while (importer.hasTree()) {
+                            Tree tree = importer.importNextTree();
+                            for (int i = 0; i < tree.getNodeCount(); i++) {
+                                NodeRef node = tree.getNode(i);
+                                Iterator iter = tree.getNodeAttributeNames(node);
+                                if (iter != null) {
+                                    while (iter.hasNext()) {
+                                        String attributeName = (String) iter.next();
+                                        if (targetAttributeName.equals(attributeName)) {
+                                            targetAttributeFound = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (targetAttributeFound) {
+                                    break;
+                                }
+                            }
+                            if (targetAttributeFound) {
+                                break;
+                            }
+                        }
+                        if (!targetAttributeFound) {
+                            throw new IllegalArgumentException("target attribute is not found");
+                        }
+                    } catch (Importer.ImportException e) {
+                        System.err.println("Error Parsing Input Tree: " + e.getMessage());
+                        return;
+                    }
+                }
+                fileReader.close();
+            }
+
+            fileReader = new FileReader(inputFileName);
             importer = new NexusImporter(fileReader);
             final PrintStream stream = outputFileName != null ?
                     new PrintStream(new FileOutputStream(outputFileName)) :
                     System.out;
 
-            stream.print("Clade");
-             n = 1;
-            for (BitSet bits : cladeCountMap.keySet()) {
-                stream.print("\t");
-                stream.print(n);
-                n++;
-            }
-            stream.println();
+            if (outputFileName2 != null) {
+                stream.print("State");
+                n = 1;
+                for (BitSet bits : cladeCountMap.keySet()) {
+                    stream.print("\t");
+                    stream.print(n);
+                    n++;
+                }
+                stream.println();
+            } else {
+                stream.print("Clade");
+                n = 1;
+                for (BitSet bits : cladeCountMap.keySet()) {
+                    stream.print("\t");
+                    stream.print(n);
+                    n++;
+                }
+                stream.println();
 
-            stream.print("State");
-            for (BitSet bits : cladeCountMap.keySet()) {
-                stream.print("\t");
-                stream.print(cladeSystem.getCladeCredibility(bits));
+                stream.print("State");
+                for (BitSet bits : cladeCountMap.keySet()) {
+                    stream.print("\t");
+                    stream.print(cladeSystem.getCladeCredibility(bits));
+                }
+                stream.println();
             }
-            stream.println();
 
             try {
                 totalTrees = 0;
                 while (importer.hasTree()) {
                     Tree tree = importer.importNextTree();
 
-                    int state = totalTrees;
+                    long state = totalTrees;
 
-                    if (burninStates > 0) {
+                    if (burninStates >= 0) {
                         // if burnin has been specified in states, try to parse it out...
                         String name = tree.getId().trim();
 
                         if (name != null && name.length() > 0 && name.startsWith("STATE_")) {
-                            state = Integer.parseInt(name.split("_")[1]);
+                            state = Long.parseLong(name.split("_")[1]);
                         }
                     }
 
@@ -229,17 +311,34 @@ public class TreeSummary {
                             burnin = totalTrees;
                         }
 
-                        stream.print(state);
+                        StringBuilder sb = new StringBuilder(Long.toString(state));
 
-                        Set<BitSet> cladeSet = cladeSystem.getCladeSet(tree);
+                        Set<BitSet> cladeSet = cladeSystem.getCladeSet(tree, includeTips);
+                        if (createCladeAttribute) {
+                            cladeSystem.collectAttribute(tree, targetAttributeName);
+                        }
 
                         for (BitSet bits : cladeCountMap.keySet()) {
-                            stream.print("\t");
-                            stream.print(cladeSet.contains(bits) ? "1" : "0");
+                            sb.append("\t");
+                            if (createCladeAttribute) {
+                                String v = "NaN";
+                                if (cladeSet.contains(bits)) {
+                                    CladeSystem.Clade clade = cladeSystem.getCladeMap().get(bits);
+                                    if (clade.attributeValue != null && clade.attributeValue.size() > 0) {
+                                        Object o = clade.attributeValue.get(0);
+                                        if (o != null) {
+                                            v = toString(o);
+                                        }
+                                    }
+                                }
+                                sb.append(v);
+                            } else {
+                                sb.append(cladeSet.contains(bits) ? "1" : "0");
+                            }
                         }
+                        
+                        stream.print(sb.toString());
                         stream.println();
-
-                        totalTreesUsed += 1;
                     }
 
                     if (totalTrees > 0 && totalTrees % stepSize == 0) {
@@ -253,11 +352,13 @@ public class TreeSummary {
                 System.err.println("Error Parsing Input Tree: " + e.getMessage());
                 return;
             }
+
             fileReader.close();
             stream.close();
             progressStream.println();
             progressStream.println();
         }
+
         if (createSummaryTree) {
             progressStream.println("Finding summary tree...");
 
@@ -472,6 +573,62 @@ public class TreeSummary {
             return bits;
         }
 
+        public void collectAttribute(Tree tree, String attributeName) {
+            collectAttribute(tree, tree.getRoot(), attributeName);
+        }
+
+        private BitSet collectAttribute(Tree tree, NodeRef node, String attributeName) {
+
+            BitSet bits = new BitSet();
+
+            if (tree.isExternal(node)) {
+
+                int index = taxonList.getTaxonIndex(tree.getNodeTaxon(node).getId());
+                if (index < 0) {
+                    throw new IllegalArgumentException("Taxon, " + tree.getNodeTaxon(node).getId() + ", not found in target tree");
+                }
+                bits.set(index);
+
+            } else {
+
+                for (int i = 0; i < tree.getChildCount(node); i++) {
+
+                    NodeRef node1 = tree.getChild(node, i);
+
+                    bits.or(collectAttribute(tree, node1, attributeName));
+                }
+            }
+
+            collectAttributeForClade(bits, tree, node, attributeName);
+
+            return bits;
+        }
+
+        private void collectAttributeForClade(BitSet bits, Tree tree, NodeRef node, String attributeName) {
+            Clade clade = cladeMap.get(bits);
+            if (clade != null) {
+
+                clade.attributeValue = new ArrayList<Object>();
+
+                Object value;
+                if (attributeName.equals("height")) {
+                    value = tree.getNodeHeight(node);
+                } else if (attributeName.equals("length")) {
+                    value = tree.getBranchLength(node);
+                } else {
+                    value = tree.getNodeAttribute(node, attributeName);
+                    if (value instanceof String && ((String) value).startsWith("\"")) {
+                        value = ((String) value).replaceAll("\"", "");
+                    }
+                }
+
+                if (value != null) {
+                    clade.attributeValue.add(value);
+                }                
+            }
+        }
+
+
         public Map<BitSet, Clade> getCladeMap() {
             return cladeMap;
         }
@@ -605,12 +762,36 @@ public class TreeSummary {
             return cladeSet;
         }
 
+        public Set<BitSet> getCladeSet(Tree tree, boolean includeTips) {
+            Set<BitSet> cladeSet = new HashSet<BitSet>();
+            getClades(tree, tree.getRoot(), includeTips, cladeSet);
+            return cladeSet;
+        }
+
         public Map<BitSet, Integer> getCladeCounts() {
             Map<BitSet, Integer> countMap = new HashMap<BitSet, Integer>();
 
             for (BitSet bits : cladeMap.keySet()) {
                 int count = getCladeCount(bits);
                 if (count > 1) {
+                    countMap.put(bits, count);
+                }
+            }
+
+            return countMap;
+        }
+
+        public Map<BitSet, Integer> getCladeCounts(double cladeFreqMin, double cladeFreqMax) {
+            if (cladeFreqMin <= 0 && cladeFreqMax > 1) {
+                getCladeCounts();
+            }
+            
+            Map<BitSet, Integer> countMap = new HashMap<BitSet, Integer>();
+
+            for (BitSet bits : cladeMap.keySet()) {
+                int count = getCladeCount(bits);
+                double prob = getCladeCredibility(bits);
+                if (count > 1 && prob > cladeFreqMin && prob < cladeFreqMax) {
                     countMap.put(bits, count);
                 }
             }
@@ -680,6 +861,7 @@ public class TreeSummary {
             BitSet bits;
             SimpleNode node;
             CladeSystem conditionalCladeSystem;
+            List<Object> attributeValue = null;
         }
 
         //
@@ -725,6 +907,36 @@ public class TreeSummary {
         progressStream.println();
     }
 
+    public String toString (Object value) {
+        StringBuilder sb = new StringBuilder();
+
+        if (value instanceof Object[]) {
+            sb.append("{");
+            Object[] values = (Object[]) value;
+            for (int i = 0; i < values.length; i++) {
+                if (i > 0) {
+                    sb.append(",");
+                }
+                sb.append(toString(values[i]));
+            }
+            sb.append("}");
+        } else if (value instanceof String) {
+            sb.append("\"" + value.toString() + "\"");
+        } else if (value instanceof Boolean) {
+            double v = (((Boolean) value) ? 1.0 : 0.0);
+            sb.append(Double.toString(v));
+        } else if (value instanceof Integer) {
+            sb.append(Integer.toString(((Integer) value).intValue()));
+        } else if (value instanceof Number) {
+            double v = ((Number) value).doubleValue();
+            sb.append(Double.toString(v));
+        } else {
+            sb.append(value.toString());
+        }
+
+        return sb.toString();
+    }
+
     //Main method
     public static void main(String[] args) throws IOException {
 
@@ -734,15 +946,21 @@ public class TreeSummary {
 
         String inputFileName = null;
         String outputFileName = null;
+        String outputFileName2 = null;
 
         printTitle();
 
         Arguments arguments = new Arguments(
                 new Arguments.Option[]{
-                        new Arguments.IntegerOption("burnin", "the number of states to be considered as 'burn-in'"),
+                        new Arguments.LongOption("burnin", "the number of states to be considered as 'burn-in'"),
                         new Arguments.IntegerOption("burninTrees", "the number of trees to be considered as 'burn-in'"),
                         new Arguments.Option("clademap", "show states of all clades over chain length"),
+                        new Arguments.Option("cladeAttribute", "show states of the target attribute of all clades over chain length"),
                         new Arguments.RealOption("limit", "the minimum posterior probability for a subtree to be included"),
+                        new Arguments.RealOption("cladeFreqMin", "the minimum posterior probability for clade to be included"),
+                        new Arguments.RealOption("cladeFreqMax", "clades with posterior probability smaller than this value will be included"),
+                        new Arguments.StringOption("targetAttribute", "target_attribute", "the attribute to log"),
+                        new Arguments.Option("excludeTips", "exclude tips in clades"),
                         new Arguments.Option("help", "option to print this message")
                 });
 
@@ -759,10 +977,10 @@ public class TreeSummary {
             System.exit(0);
         }
 
-        int burninStates = -1;
+        long burninStates = -1;
         int burninTrees = -1;
         if (arguments.hasOption("burnin")) {
-            burninStates = arguments.getIntegerOption("burnin");
+            burninStates = arguments.getLongOption("burnin");
         }
         if (arguments.hasOption("burninTrees")) {
             burninTrees = arguments.getIntegerOption("burninTrees");
@@ -773,33 +991,58 @@ public class TreeSummary {
             posteriorLimit = arguments.getRealOption("limit");
         }
 
-        final String[] args2 = arguments.getLeftoverArguments();
+        double cladeFreqMin = 0.0;
+        if (arguments.hasOption("cladeFreqMin")) {
+            cladeFreqMin = arguments.getRealOption("cladeFreqMin");
+        }
+
+        double cladeFreqMax = 1.01;
+        if (arguments.hasOption("cladeFreqMax")) {
+            cladeFreqMax = arguments.getRealOption("cladeFreqMax");
+        }
+
+        boolean includeTips = true;
+        if (arguments.hasOption("excludeTips")) {
+            includeTips = false;
+        }
 
         boolean createCladeMap = false;
         boolean createSummaryTree = true;
+        boolean createCladeAttribute = false;
 
         if (arguments.hasOption("clademap")) {
             createCladeMap = true;
             createSummaryTree = false;
         }
 
-
-        switch (args2.length) {
-            case 2:
-                outputFileName = args2[1];
-                // fall to
-            case 1:
-                inputFileName = args2[0];
-                break;
-            default: {
-                System.err.println("Unknown option: " + args2[2]);
-                System.err.println();
-                printUsage(arguments);
-                System.exit(1);
-            }
+        if (arguments.hasOption("cladeAttribute")) {
+            createCladeMap = false;
+            createSummaryTree = false;
+            createCladeAttribute = true;
         }
 
-        new TreeSummary(burninTrees, burninStates, posteriorLimit, createSummaryTree, createCladeMap, inputFileName, outputFileName);
+        String targetAttributeName = "height";
+        if (arguments.hasOption("targetAttribute")) {
+            targetAttributeName = arguments.getStringOption("targetAttribute");
+        }
+
+        final String[] args2 = arguments.getLeftoverArguments();
+        if (args2.length > ((createCladeMap || createCladeAttribute) ? 3 : 2)) {
+            System.err.println("Unknown option: " + args2[((createCladeMap || createCladeAttribute) ? 3 : 2)]);
+            System.err.println();
+            printUsage(arguments);
+            System.exit(1);
+        }
+
+        inputFileName = args2[0];
+        if (args2.length >= 2) {
+            outputFileName = args2[1];
+        }
+        if ((createCladeMap || createCladeAttribute) && args2.length == 3) {
+            outputFileName2 = args2[2];
+        }
+
+        new TreeSummary(burninTrees, burninStates, posteriorLimit, cladeFreqMin, cladeFreqMax, includeTips, createSummaryTree, createCladeMap, createCladeAttribute, targetAttributeName, inputFileName, outputFileName, outputFileName2);
 
         System.exit(0);
     }
