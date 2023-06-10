@@ -162,14 +162,14 @@ public class LogCombiner {
                                 }
 
                                 if (resample >= 0) {
-                                    if (resample % stateStep != 0) {
+                                    if (resample == 0 || resample % stateStep != 0) {
                                         System.err.println("ERROR: Resampling frequency is not a multiple of existing sampling frequency");
                                         return;
                                     }
                                 }
 
                                 boolean logThis;
-                                if (resample < 0) {
+                                if (resample <= 1) {
                                     // not resampling, log every state
                                     logThis = true;
                                 } else if (!renumberOutput) {
@@ -183,7 +183,11 @@ public class LogCombiner {
                                 if (!renumberOutput) {
                                     stateLineEntry = stateCount;
                                 } else {
-                                    stateLineEntry = stateCount / (resample / stateStep);
+                                    if (resample > 1) {
+                                        stateLineEntry = (stateCount * stateStep) / resample;
+                                    } else {
+                                        stateLineEntry = stateCount + 1;
+                                    }
                                 }
 
                                 if (logThis) {
@@ -236,14 +240,14 @@ public class LogCombiner {
                                     }
 
                                     if (resample >= 0) {
-                                        if (resample % stateStep != 0) {
+                                        if (resample == 0 || resample % stateStep != 0) {
                                             System.err.println("ERROR: Resampling frequency is not a multiple of existing sampling frequency");
                                             return;
                                         }
                                     }
 
                                     boolean logThis;
-                                    if (resample < 0) {
+                                    if (resample <= 1) {
                                         logThis = true;
                                     } else if (!renumberOutput) {
                                         logThis = (stateCount % resample == 0);
@@ -261,7 +265,11 @@ public class LogCombiner {
 //                                	System.out.println("stateStep: " + stateStep);
 //                                	System.out.println("resample / stateStep: " + (resample / stateStep));
 
-                                        stateLineEntry = stateCount / (resample / stateStep);
+                                        if (resample > 1) {
+                                            stateLineEntry = (stateCount * stateStep) / resample;
+                                        } else {
+                                            stateLineEntry = stateCount + 1;
+                                        }
                                     }
 
                                     if (logThis) {
@@ -357,14 +365,14 @@ public class LogCombiner {
                                 }
 
                                 if (resample >= 0) {
-                                    if (resample % stateStep != 0) {
+                                    if (resample == 0 || resample % stateStep != 0) {
                                         System.err.println("ERROR: Resampling frequency is not a multiple of existing sampling frequency");
                                         return;
                                     }
                                 }
 
                                 boolean logThis;
-                                if (resample < 0) {
+                                if (resample <= 1) {
                                     logThis = true;
                                 } else if (!renumberOutput){
                                     logThis = (stateCount % resample == 0);
@@ -382,7 +390,11 @@ public class LogCombiner {
 //                                	System.out.println("stateStep: " + stateStep);
 //                                	System.out.println("resample / stateStep: " + (resample / stateStep));
 
-                                    stateLineEntry = stateCount / (resample / stateStep);
+                                    if (resample > 1) {
+                                        stateLineEntry = (stateCount * stateStep) / resample;
+                                    } else {
+                                        stateLineEntry = stateCount + 1;
+                                    }
                                 }
 
                                 if (logThis) {
