@@ -321,6 +321,7 @@ public class TreeLoggerParser extends LoggerParser {
         if (dp != -1) {
             format = NumberFormat.getNumberInstance(Locale.ENGLISH);
             format.setMaximumFractionDigits(dp);
+            format.setGroupingUsed(false);
         }
 
         final PrintWriter pw = getLogFile(xo, getParserName());
