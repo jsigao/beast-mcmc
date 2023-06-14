@@ -60,6 +60,8 @@ public class TreeSummary {
      * @param cladeFreqMin
      * @param cladeFreqMax
      * @param includeTips
+     * @param targetAttributeName
+     * @param cladeOnly
      * @param inputFileName
      * @param outputFileName
      * @param outputFileName2
@@ -75,6 +77,7 @@ public class TreeSummary {
                        boolean createCladeMap,
                        boolean createCladeAttribute,
                        String targetAttributeName,
+                       boolean cladeOnly,
                        String inputFileName,
                        String outputFileName,
                        String outputFileName2
@@ -202,161 +205,162 @@ public class TreeSummary {
             }
             stream2.close();
 
-            progressStream.println("Reading trees...");
-            progressStream.println("0              25             50             75            100");
-            progressStream.println("|--------------|--------------|--------------|--------------|");
+            if (cladeOnly == false) {
+                progressStream.println("Reading trees...");
+                progressStream.println("0              25             50             75            100");
+                progressStream.println("|--------------|--------------|--------------|--------------|");
 
-            stepSize = totalTrees / 60;
+                stepSize = totalTrees / 60;
+                if (stepSize < 1) stepSize = 1;
 
-            fileReader = new FileReader(inputFileName);
+                boolean targetAttributeFound = false;
+                if (createCladeAttribute) {
+                    if (targetAttributeName.equals("height") || targetAttributeName.equals("length")) {
+                        targetAttributeFound = true;
+                    }
 
-            boolean targetAttributeFound = false;
-            if (createCladeAttribute) {
-                if (targetAttributeName.equals("height") || targetAttributeName.equals("length")) {
-                    targetAttributeFound = true;
-                }
-
-                if (!targetAttributeFound) {
-                    fileReader = new FileReader(inputFileName);
-                    importer = new NexusImporter(fileReader);
-                    try {
-                        while (importer.hasTree()) {
-                            Tree tree = importer.importNextTree();
-                            for (int i = 0; i < tree.getNodeCount(); i++) {
-                                NodeRef node = tree.getNode(i);
-                                Iterator iter = tree.getNodeAttributeNames(node);
-                                if (iter != null) {
-                                    while (iter.hasNext()) {
-                                        String attributeName = (String) iter.next();
-                                        if (targetAttributeName.equals(attributeName)) {
-                                            targetAttributeFound = true;
-                                            break;
+                    if (!targetAttributeFound) {
+                        fileReader = new FileReader(inputFileName);
+                        importer = new NexusImporter(fileReader);
+                        try {
+                            while (importer.hasTree()) {
+                                Tree tree = importer.importNextTree();
+                                for (int i = 0; i < tree.getNodeCount(); i++) {
+                                    NodeRef node = tree.getNode(i);
+                                    Iterator iter = tree.getNodeAttributeNames(node);
+                                    if (iter != null) {
+                                        while (iter.hasNext()) {
+                                            String attributeName = (String) iter.next();
+                                            if (targetAttributeName.equals(attributeName)) {
+                                                targetAttributeFound = true;
+                                                break;
+                                            }
                                         }
+                                    }
+                                    if (targetAttributeFound) {
+                                        break;
                                     }
                                 }
                                 if (targetAttributeFound) {
                                     break;
                                 }
                             }
-                            if (targetAttributeFound) {
-                                break;
+                            if (!targetAttributeFound) {
+                                throw new IllegalArgumentException("target attribute is not found");
+                            }
+                        } catch (Importer.ImportException e) {
+                            System.err.println("Error Parsing Input Tree: " + e.getMessage());
+                            return;
+                        }
+                        fileReader.close();
+                    }
+                }
+
+                fileReader = new FileReader(inputFileName);
+                importer = new NexusImporter(fileReader);
+                final PrintStream stream = outputFileName != null ?
+                        new PrintStream(new FileOutputStream(outputFileName)) :
+                        System.out;
+
+                if (outputFileName2 != null) {
+                    stream.print("State");
+                    n = 1;
+                    for (BitSet bits : cladeCountMap.keySet()) {
+                        stream.print("\t");
+                        stream.print(n);
+                        n++;
+                    }
+                    stream.println();
+                } else {
+                    stream.print("Clade");
+                    n = 1;
+                    for (BitSet bits : cladeCountMap.keySet()) {
+                        stream.print("\t");
+                        stream.print(n);
+                        n++;
+                    }
+                    stream.println();
+
+                    stream.print("State");
+                    for (BitSet bits : cladeCountMap.keySet()) {
+                        stream.print("\t");
+                        stream.print(cladeSystem.getCladeCredibility(bits));
+                    }
+                    stream.println();
+                }
+
+                try {
+                    totalTrees = 0;
+                    while (importer.hasTree()) {
+                        Tree tree = importer.importNextTree();
+
+                        long state = totalTrees;
+
+                        if (burninStates >= 0) {
+                            // if burnin has been specified in states, try to parse it out...
+                            String name = tree.getId().trim();
+
+                            if (name != null && name.length() > 0 && name.startsWith("STATE_")) {
+                                state = Long.parseLong(name.split("_")[1]);
                             }
                         }
-                        if (!targetAttributeFound) {
-                            throw new IllegalArgumentException("target attribute is not found");
-                        }
-                    } catch (Importer.ImportException e) {
-                        System.err.println("Error Parsing Input Tree: " + e.getMessage());
-                        return;
-                    }
-                }
-                fileReader.close();
-            }
 
-            fileReader = new FileReader(inputFileName);
-            importer = new NexusImporter(fileReader);
-            final PrintStream stream = outputFileName != null ?
-                    new PrintStream(new FileOutputStream(outputFileName)) :
-                    System.out;
+                        if (totalTrees >= burninTrees && state >= burninStates) {
+                            // if either of the two burnin thresholds have been reached...
 
-            if (outputFileName2 != null) {
-                stream.print("State");
-                n = 1;
-                for (BitSet bits : cladeCountMap.keySet()) {
-                    stream.print("\t");
-                    stream.print(n);
-                    n++;
-                }
-                stream.println();
-            } else {
-                stream.print("Clade");
-                n = 1;
-                for (BitSet bits : cladeCountMap.keySet()) {
-                    stream.print("\t");
-                    stream.print(n);
-                    n++;
-                }
-                stream.println();
+                            if (burnin < 0) {
+                                // if this is the first time this point has been reached,
+                                // record the number of trees this represents for future use...
+                                burnin = totalTrees;
+                            }
 
-                stream.print("State");
-                for (BitSet bits : cladeCountMap.keySet()) {
-                    stream.print("\t");
-                    stream.print(cladeSystem.getCladeCredibility(bits));
-                }
-                stream.println();
-            }
+                            StringBuilder sb = new StringBuilder(Long.toString(state));
 
-            try {
-                totalTrees = 0;
-                while (importer.hasTree()) {
-                    Tree tree = importer.importNextTree();
-
-                    long state = totalTrees;
-
-                    if (burninStates >= 0) {
-                        // if burnin has been specified in states, try to parse it out...
-                        String name = tree.getId().trim();
-
-                        if (name != null && name.length() > 0 && name.startsWith("STATE_")) {
-                            state = Long.parseLong(name.split("_")[1]);
-                        }
-                    }
-
-                    if (totalTrees >= burninTrees && state >= burninStates) {
-                        // if either of the two burnin thresholds have been reached...
-
-                        if (burnin < 0) {
-                            // if this is the first time this point has been reached,
-                            // record the number of trees this represents for future use...
-                            burnin = totalTrees;
-                        }
-
-                        StringBuilder sb = new StringBuilder(Long.toString(state));
-
-                        Set<BitSet> cladeSet = cladeSystem.getCladeSet(tree, includeTips);
-                        if (createCladeAttribute) {
-                            cladeSystem.collectAttribute(tree, targetAttributeName);
-                        }
-
-                        for (BitSet bits : cladeCountMap.keySet()) {
-                            sb.append("\t");
+                            Set<BitSet> cladeSet = cladeSystem.getCladeSet(tree, includeTips);
                             if (createCladeAttribute) {
-                                String v = "NaN";
-                                if (cladeSet.contains(bits)) {
-                                    CladeSystem.Clade clade = cladeSystem.getCladeMap().get(bits);
-                                    if (clade.attributeValue != null && clade.attributeValue.size() > 0) {
-                                        Object o = clade.attributeValue.get(0);
-                                        if (o != null) {
-                                            v = toString(o);
+                                cladeSystem.collectAttribute(tree, targetAttributeName);
+                            }
+
+                            for (BitSet bits : cladeCountMap.keySet()) {
+                                sb.append("\t");
+                                if (createCladeAttribute) {
+                                    String v = "NaN";
+                                    if (cladeSet.contains(bits)) {
+                                        CladeSystem.Clade clade = cladeSystem.getCladeMap().get(bits);
+                                        if (clade.attributeValue != null && clade.attributeValue.size() > 0) {
+                                            Object o = clade.attributeValue.get(0);
+                                            if (o != null) {
+                                                v = toString(o);
+                                            }
                                         }
                                     }
+                                    sb.append(v);
+                                } else {
+                                    sb.append(cladeSet.contains(bits) ? "1" : "0");
                                 }
-                                sb.append(v);
-                            } else {
-                                sb.append(cladeSet.contains(bits) ? "1" : "0");
                             }
+                            
+                            stream.print(sb.toString());
+                            stream.println();
                         }
-                        
-                        stream.print(sb.toString());
-                        stream.println();
+
+                        if (totalTrees > 0 && totalTrees % stepSize == 0) {
+                            progressStream.print("*");
+                            progressStream.flush();
+                        }
+                        totalTrees++;
                     }
 
-                    if (totalTrees > 0 && totalTrees % stepSize == 0) {
-                        progressStream.print("*");
-                        progressStream.flush();
-                    }
-                    totalTrees++;
+                } catch (Importer.ImportException e) {
+                    System.err.println("Error Parsing Input Tree: " + e.getMessage());
+                    return;
                 }
 
-            } catch (Importer.ImportException e) {
-                System.err.println("Error Parsing Input Tree: " + e.getMessage());
-                return;
+                fileReader.close();
+                stream.close();
+                progressStream.println();
+                progressStream.println();
             }
-
-            fileReader.close();
-            stream.close();
-            progressStream.println();
-            progressStream.println();
         }
 
         if (createSummaryTree) {
@@ -961,6 +965,7 @@ public class TreeSummary {
                         new Arguments.RealOption("cladeFreqMax", "clades with posterior probability smaller than this value will be included"),
                         new Arguments.StringOption("targetAttribute", "target_attribute", "the attribute to log"),
                         new Arguments.Option("excludeTips", "exclude tips in clades"),
+                        new Arguments.Option("cladeOnly", "only generate clade report but not their states across the chain"),
                         new Arguments.Option("help", "option to print this message")
                 });
 
@@ -1026,6 +1031,11 @@ public class TreeSummary {
             targetAttributeName = arguments.getStringOption("targetAttribute");
         }
 
+        boolean cladeOnly = false;
+        if (arguments.hasOption("cladeOnly")) {
+            cladeOnly = true;
+        }
+
         final String[] args2 = arguments.getLeftoverArguments();
         if (args2.length > ((createCladeMap || createCladeAttribute) ? 3 : 2)) {
             System.err.println("Unknown option: " + args2[((createCladeMap || createCladeAttribute) ? 3 : 2)]);
@@ -1035,14 +1045,16 @@ public class TreeSummary {
         }
 
         inputFileName = args2[0];
-        if (args2.length >= 2) {
+        if (args2.length > 2 || (args2.length == 2 && cladeOnly == false)) {
             outputFileName = args2[1];
+        } else if (args2.length == 2 && cladeOnly) {
+            outputFileName2 = args2[1];
         }
         if ((createCladeMap || createCladeAttribute) && args2.length == 3) {
             outputFileName2 = args2[2];
         }
 
-        new TreeSummary(burninTrees, burninStates, posteriorLimit, cladeFreqMin, cladeFreqMax, includeTips, createSummaryTree, createCladeMap, createCladeAttribute, targetAttributeName, inputFileName, outputFileName, outputFileName2);
+        new TreeSummary(burninTrees, burninStates, posteriorLimit, cladeFreqMin, cladeFreqMax, includeTips, createSummaryTree, createCladeMap, createCladeAttribute, targetAttributeName, cladeOnly, inputFileName, outputFileName, outputFileName2);
 
         System.exit(0);
     }
