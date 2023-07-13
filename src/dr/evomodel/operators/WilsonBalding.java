@@ -65,6 +65,8 @@ public class WilsonBalding extends AbstractTreeOperator implements Constrainable
     private List<Integer> leafCountsAccept;
     private List<Integer> leafCountsReject;
 
+    private int listMaxSize = 1000000;
+
     public WilsonBalding(TreeModel tree, double weight) {
         this.tree = tree;
         setWeight(weight);
@@ -280,6 +282,14 @@ public class WilsonBalding extends AbstractTreeOperator implements Constrainable
         nodeHeight0Accept.add(nodeHeights[0]);
         nodeHeight1Accept.add(nodeHeights[1]);
         leafCountsAccept.add(leafCounts);
+
+        if (nodeDistanceAccept.size() > listMaxSize) {
+            nodeDistanceAccept.remove(0);
+            pathLengthAccept.remove(0);
+            nodeHeight0Accept.remove(0);
+            nodeHeight1Accept.remove(0);
+            leafCountsAccept.remove(0);
+        }
     }
 
     public void reject() {
@@ -290,6 +300,14 @@ public class WilsonBalding extends AbstractTreeOperator implements Constrainable
         nodeHeight0Reject.add(nodeHeights[0]);
         nodeHeight1Reject.add(nodeHeights[1]);
         leafCountsReject.add(leafCounts);
+
+        if (nodeDistanceReject.size() > listMaxSize) {
+            nodeDistanceReject.remove(0);
+            pathLengthReject.remove(0);
+            nodeHeight0Reject.remove(0);
+            nodeHeight1Reject.remove(0);
+            leafCountsReject.remove(0);
+        }
     }
 
     public LogColumn[] getColumns() {

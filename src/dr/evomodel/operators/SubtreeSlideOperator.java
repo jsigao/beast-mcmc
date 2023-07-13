@@ -76,6 +76,8 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
     private List<Integer> leafCountsAccept;
     private List<Integer> leafCountsReject;
 
+    private int listMaxSize = 1000000;
+
     public SubtreeSlideOperator(DefaultTreeModel tree, double weight, double size, boolean gaussian,
                                 boolean swapRates, boolean swapTraits, boolean scaleDirichletBranches,
                                 AdaptationMode mode, double targetAcceptance) {
@@ -426,6 +428,14 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
         nodeHeight1Accept.add(nodeHeights[1]);
         nodeHeight2Accept.add(nodeHeights[2]);
         leafCountsAccept.add(leafCounts);
+
+        if (nodeDistanceAccept.size() > listMaxSize) {
+            nodeDistanceAccept.remove(0);
+            nodeHeight0Accept.remove(0);
+            nodeHeight1Accept.remove(0);
+            nodeHeight2Accept.remove(0);
+            leafCountsAccept.remove(0);
+        }
     }
 
     public void reject() {
@@ -436,6 +446,14 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
         nodeHeight1Reject.add(nodeHeights[1]);
         nodeHeight2Reject.add(nodeHeights[2]);
         leafCountsReject.add(leafCounts);
+
+        if (nodeDistanceReject.size() > listMaxSize) {
+            nodeDistanceReject.remove(0);
+            nodeHeight0Reject.remove(0);
+            nodeHeight1Reject.remove(0);
+            nodeHeight2Reject.remove(0);
+            leafCountsReject.remove(0);
+        }
     }
 
     public LogColumn[] getColumns() {

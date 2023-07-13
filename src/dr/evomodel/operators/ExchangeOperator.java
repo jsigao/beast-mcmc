@@ -78,6 +78,8 @@ public class ExchangeOperator extends AbstractTreeOperator implements Constraina
     private List<Integer> leafCounts1Accept;
     private List<Integer> leafCounts1Reject;
 
+    private int listMaxSize = 1000000;
+
     public ExchangeOperator(int mode, TreeModel tree, double weight) {
         this.mode = mode;
         this.tree = tree;
@@ -276,6 +278,17 @@ public class ExchangeOperator extends AbstractTreeOperator implements Constraina
         nodeHeight1Accept.add(nodeHeights[1]);
         leafCounts0Accept.add(leafCounts[0]);
         leafCounts1Accept.add(leafCounts[1]);
+
+        if (pathLengthAccept.size() > listMaxSize) {
+            if (mode != NARROW) {
+                nodeDistanceAccept.remove(0);
+            }
+            pathLengthAccept.remove(0);
+            nodeHeight0Accept.remove(0);
+            nodeHeight1Accept.remove(0);
+            leafCounts0Accept.remove(0);
+            leafCounts1Accept.remove(0);
+        }
     }
 
     public void reject() {
@@ -289,6 +302,17 @@ public class ExchangeOperator extends AbstractTreeOperator implements Constraina
         nodeHeight1Reject.add(nodeHeights[1]);
         leafCounts0Reject.add(leafCounts[0]);
         leafCounts1Reject.add(leafCounts[1]);
+
+        if (pathLengthReject.size() > listMaxSize) {
+            if (mode != NARROW) {
+                nodeDistanceReject.remove(0);
+            }
+            pathLengthReject.remove(0);
+            nodeHeight0Reject.remove(0);
+            nodeHeight1Reject.remove(0);
+            leafCounts0Reject.remove(0);
+            leafCounts1Reject.remove(0);
+        }
     }
 
     public LogColumn[] getColumns() {
