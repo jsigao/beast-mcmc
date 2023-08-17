@@ -210,6 +210,10 @@ public abstract class SimpleMCMCOperator implements MCMCOperator, Loggable {
         sumEvaluationTime += time;
     }
 
+    public final void setTotalEvaluationTime(long sumEvaluationTime) {
+        this.sumEvaluationTime = sumEvaluationTime * 1000000;
+    }
+
     @Override
     public double getMeanCalculationCount() {
         return (double) sumCalculationCount / (double) (acceptCount + rejectCount);
@@ -223,6 +227,10 @@ public abstract class SimpleMCMCOperator implements MCMCOperator, Loggable {
     @Override
     public long getTotalCalculationCount() {
         return sumCalculationCount;
+    }
+
+    public final void setTotalCalculationCount(long sumCalculationCount) {
+        this.sumCalculationCount = sumCalculationCount;
     }
 
     @Override

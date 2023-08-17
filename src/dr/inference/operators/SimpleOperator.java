@@ -157,6 +157,10 @@ public abstract class SimpleOperator implements MCMCOperator {
         sumEvaluationTime += time;
     }
 
+    public final void setTotalEvaluationTime(long sumEvaluationTime) {
+        this.sumEvaluationTime = sumEvaluationTime;
+    }
+
     @Override
     public double getMeanCalculationCount() {
         return (double) sumCalculationCount / (double) (accepted + rejected);
@@ -170,6 +174,10 @@ public abstract class SimpleOperator implements MCMCOperator {
     @Override
     public long getTotalCalculationCount() {
         return sumCalculationCount;
+    }
+
+    public final void setTotalCalculationCount(long sumCalculationCount) {
+        this.sumCalculationCount = sumCalculationCount;
     }
 
     private long sumEvaluationTime = 0;

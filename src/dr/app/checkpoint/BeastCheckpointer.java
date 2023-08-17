@@ -280,6 +280,10 @@ public class BeastCheckpointer implements StateLoaderSaver {
                     out.print("\t");
                     out.print(((AdaptableMCMCOperator)operator).getAdaptationCount());
                 }
+                out.print("\t");
+                out.print(operator.getTotalEvaluationTime());
+                out.print("\t");
+                out.print(operator.getTotalCalculationCount());
                 out.println();
             }
 
@@ -494,12 +498,18 @@ public class BeastCheckpointer implements StateLoaderSaver {
                 }
                 operator.setAcceptCount(Long.parseLong(fields[2]));
                 operator.setRejectCount(Long.parseLong(fields[3]));
+                int j = 0;
                 if (operator instanceof AdaptableMCMCOperator) {
-                    if (fields.length != 6) {
+                    if (fields.length < 6) {
                         throw new RuntimeException("Coercable operator missing parameter: " + fields[1]);
                     }
                     ((AdaptableMCMCOperator)operator).setAdaptableParameter(parser.parseDouble(fields[4]));
                     ((AdaptableMCMCOperator)operator).setAdaptationCount(Long.parseLong(fields[5]));
+                    j += 2;
+                }
+                if (fields.length == 6 + j) {
+                    operator.setTotalEvaluationTime(Long.parseLong(fields[4 + j]));
+                    operator.setTotalCalculationCount(Long.parseLong(fields[5 + j]));
                 }
             }
 
