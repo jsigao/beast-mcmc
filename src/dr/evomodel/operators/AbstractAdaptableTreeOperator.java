@@ -6,6 +6,15 @@ import dr.evomodelxml.operators.TipLeapOperatorParser;
 import dr.inference.operators.AdaptableMCMCOperator;
 import dr.inference.operators.AdaptationMode;
 
+import dr.inference.loggers.LogColumn;
+import dr.inference.loggers.Loggable;
+import dr.inference.loggers.NumberColumn;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.logging.Logger;
+
 /**
  * @author Andrew Rambaut
  * @version $Id$
@@ -48,6 +57,20 @@ public abstract class AbstractAdaptableTreeOperator extends AbstractTreeOperator
     @Override
     public void setAdaptationCount(long count) {
         adaptationCount = count;
+    }
+
+    @Override
+    public LogColumn[] getColumns() {
+        List<LogColumn> columns = new ArrayList<LogColumn>(Arrays.asList(super.getColumns()));
+
+        columns.add(new NumberColumn(getOperatorName() + "_size") {
+            @Override
+            public double getDoubleValue() {
+                return getRawParameter();
+            }
+        });
+
+        return columns.toArray(new LogColumn[columns.size()]);
     }
 
     /**
