@@ -238,8 +238,8 @@ public class CheckPointModifier extends BeastCheckpointer {
                         if (lookup.length < 4) {
                             throw new RuntimeException("Operator missing values: " + lookup[1] + ", length=" + lookup.length);
                         }
-                        operator.setAcceptCount(Integer.parseInt(lookup[2]));
-                        operator.setRejectCount(Integer.parseInt(lookup[3]));
+                        operator.setAcceptCount(Long.parseLong(lookup[2]));
+                        operator.setRejectCount(Long.parseLong(lookup[3]));
                         if (operator instanceof AdaptableMCMCOperator) {
                             if (lookup.length != 6) {
                                 throw new RuntimeException("Coercable operator missing parameter: " + lookup[1]);
@@ -269,8 +269,8 @@ public class CheckPointModifier extends BeastCheckpointer {
                     if (fields.length < 4) {
                         throw new RuntimeException("Operator missing values: " + fields[1] + ", length=" + fields.length);
                     }
-                    operator.setAcceptCount(Integer.parseInt(fields[2]));
-                    operator.setRejectCount(Integer.parseInt(fields[3]));
+                    operator.setAcceptCount(Long.parseLong(fields[2]));
+                    operator.setRejectCount(Long.parseLong(fields[3]));
                     if (operator instanceof AdaptableMCMCOperator) {
                         if (fields.length != 6) {
                             throw new RuntimeException("Coercable operator missing parameter: " + fields[1]);

@@ -492,8 +492,8 @@ public class BeastCheckpointer implements StateLoaderSaver {
                 if (fields.length < 4) {
                     throw new RuntimeException("Operator missing values: " + fields[1]);
                 }
-                operator.setAcceptCount(Integer.parseInt(fields[2]));
-                operator.setRejectCount(Integer.parseInt(fields[3]));
+                operator.setAcceptCount(Long.parseLong(fields[2]));
+                operator.setRejectCount(Long.parseLong(fields[3]));
                 if (operator instanceof AdaptableMCMCOperator) {
                     if (fields.length != 6) {
                         throw new RuntimeException("Coercable operator missing parameter: " + fields[1]);
