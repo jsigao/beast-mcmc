@@ -448,16 +448,24 @@ public class XMLParser {
      */
 
     public static PrintWriter getFilePrintWriter(XMLObject xo, String parserName) throws XMLParseException {
-        return getFilePrintWriter(xo, parserName, FileHelpers.FILE_NAME);
+        return getFilePrintWriter(xo, parserName, false);
     }
 
     public static PrintWriter getFilePrintWriter(XMLObject xo, String parserName, String attributeName) throws XMLParseException {
+        return getFilePrintWriter(xo, parserName, attributeName, false);
+    }
+
+    public static PrintWriter getFilePrintWriter(XMLObject xo, String parserName, boolean append) throws XMLParseException {
+        return getFilePrintWriter(xo, parserName, FileHelpers.FILE_NAME, append);
+    }
+
+    public static PrintWriter getFilePrintWriter(XMLObject xo, String parserName, String attributeName, boolean append) throws XMLParseException {
 
         if (xo.hasAttribute(attributeName)) {
             File logFile = getLogFile(xo, attributeName);
 
             try {
-                return new PrintWriter(new FileOutputStream(logFile));
+                return new PrintWriter(new FileOutputStream(logFile, append));
             } catch (FileNotFoundException fnfe) {
                 throw new XMLParseException("File '" + logFile.getAbsolutePath() +
                         "' can not be opened for " + parserName + " element.");
