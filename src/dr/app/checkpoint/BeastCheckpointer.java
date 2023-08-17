@@ -307,16 +307,25 @@ public class BeastCheckpointer implements StateLoaderSaver {
                     //replace Newick format by printing general graph structure
                     //out.println(((TreeModel) model).getNewick());
 
-                    out.println("#node height taxon");
+                    out.print("#node height taxon");
+                    if (model instanceof DefaultTreeModel) {
+                        out.print(" heightParameterId");
+                    }
+                    out.println();
                     int nodeCount = ((TreeModel) model).getNodeCount();
                     out.println(nodeCount);
                     for (int i = 0; i < nodeCount; i++) {
-                        out.print(((TreeModel) model).getNode(i).getNumber());
+                        NodeRef node = ((TreeModel) model).getNode(i);
+                        out.print(node.getNumber());
                         out.print("\t");
-                        out.print(((TreeModel) model).getNodeHeight(((TreeModel) model).getNode(i)));
-                        if (((TreeModel) model).isExternal(((TreeModel) model).getNode(i))) {
+                        out.print(((TreeModel) model).getNodeHeight(node));
+                        out.print("\t");
+                        if (((TreeModel) model).isExternal(node)) {
+                            out.print(((TreeModel) model).getNodeTaxon(node).getId());
+                        }
+                        if (model instanceof DefaultTreeModel) {
                             out.print("\t");
-                            out.print(((TreeModel) model).getNodeTaxon(((TreeModel) model).getNode(i)).getId());
+                            out.print(((DefaultTreeModel) model).getNodeHeightParameter(node).getParameterName());
                         }
                         out.println();
                     }
@@ -588,6 +597,7 @@ public class BeastCheckpointer implements StateLoaderSaver {
                         int nodeCount = Integer.parseInt(fields[0]);
                         double[] nodeHeights = new double[nodeCount];
                         String[] taxaNames = new String[(nodeCount+1)/2];
+                        String[] nodeHeightParameterNames = new String[nodeCount];
 
                         for (int i = 0; i < nodeCount; i++) {
                             line = in.readLine();
@@ -595,6 +605,9 @@ public class BeastCheckpointer implements StateLoaderSaver {
                             nodeHeights[i] = parser.parseDouble(fields[1]);
                             if (i < taxaNames.length) {
                                 taxaNames[i] = fields[2];
+                            }
+                            if (fields.length == 4) {
+                                nodeHeightParameterNames[i] = fields[3];
                             }
                         }
 
@@ -651,6 +664,9 @@ public class BeastCheckpointer implements StateLoaderSaver {
 
                         //adopt the loaded tree structure;
                         ((TreeModel) model).beginTreeEdit();
+                        if (model instanceof DefaultTreeModel && nodeHeightParameterNames[0] != null) {
+                            ((DefaultTreeModel) model).adoptNodeHeightParameters(parents, nodeHeightParameterNames);
+                        }
                         ((TreeModel) model).adoptTreeStructure(parents, nodeHeights, childOrder, taxaNames);
                         if (traitModels.size() > 0) {
                             System.out.println("adopting " + traitModels.size() + " trait models to treeModel " + ((TreeModel)model).getId());

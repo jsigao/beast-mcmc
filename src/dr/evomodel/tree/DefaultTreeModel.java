@@ -228,6 +228,10 @@ public class DefaultTreeModel extends TreeModel {
         return ((Node) node).getHeight();
     }
 
+    public final Parameter getNodeHeightParameter(NodeRef node) {
+        return ((Node) node).getHeightParameter();
+    }
+
     public final double getNodeHeightUpper(NodeRef node) {
         return ((Node) node).heightParameter.getBounds().getUpperLimit(0);
     }
@@ -445,6 +449,10 @@ public class DefaultTreeModel extends TreeModel {
         ((Node) n).setHeightQuietly(height);
     }
 
+    public void setNodeHeightParameter(NodeRef n, Parameter heightParameter) {
+        ((Node) n).setHeightParameter(heightParameter);
+    }
+
     public void setNodeRate(NodeRef n, double rate) {
         if (!hasRates) throw new IllegalArgumentException("Rate parameters have not been created");
         ((Node) n).setRate(rate);
@@ -649,6 +657,38 @@ public class DefaultTreeModel extends TreeModel {
         }
 
         this.setRoot(nodes[newRootIndex]);
+    }
+
+    public void adoptNodeHeightParameters(int[] edges, String[] nodeHeightParameterNames) {
+
+        Parameter[] nodeHeightParameters = new Parameter[this.nodeCount];
+        for (int i = 0; i < this.nodeCount; i++) {
+            for (int j = 0; j < this.nodeCount; j++) {
+                Parameter heightParameter = this.getNodeHeightParameter(this.getNode(j));
+                if (nodeHeightParameterNames[i].equals(heightParameter.getParameterName())) {
+                    nodeHeightParameters[i] = heightParameter;
+                }
+            }
+        }
+
+        for (int i = 0; i < this.nodeCount; i++) {
+            this.setNodeHeightParameter(this.getNode(i), nodeHeightParameters[i]);
+        }
+
+        int newRootIndex = -1;
+        for (int i = 0; i < edges.length; i++) {
+            if (edges[i] == -1) {
+                newRootIndex = i;
+                break;
+            }
+        }
+        int rootIndex = root.getNumber();
+
+        if (newRootIndex > 0 && newRootIndex != rootIndex) {
+            Parameter temp = root.heightParameter;
+            this.setNodeHeightParameter(root, nodeHeightParameters[newRootIndex]);
+            this.setNodeHeightParameter(this.getNode(newRootIndex), temp);
+        }
     }
 
     /**
@@ -1146,6 +1186,10 @@ public class DefaultTreeModel extends TreeModel {
 
         public final void setHeightQuietly(double height) {
             heightParameter.setParameterValueQuietly(0, height);
+        }
+
+        public final void setHeightParameter(Parameter heightParameter) {
+            this.heightParameter = heightParameter;
         }
 
         public final void setRate(double rate) {
