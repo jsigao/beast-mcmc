@@ -62,8 +62,9 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
     private final double targetAcceptance;
 
     private int nodeDistance;
-    private double[] nodeHeights = new double[3];
-    private int leafCounts;
+    private double[] nodeHeights = new double[2];
+    private int[] cladeIndices = new int[2];
+    protected boolean logOperatorStat = false;
 
     private List<Integer> nodeDistanceAccept;
     private List<Integer> nodeDistanceReject;
@@ -71,12 +72,12 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
     private List<Double> nodeHeight0Reject;
     private List<Double> nodeHeight1Accept;
     private List<Double> nodeHeight1Reject;
-    private List<Double> nodeHeight2Accept;
-    private List<Double> nodeHeight2Reject;
-    private List<Integer> leafCountsAccept;
-    private List<Integer> leafCountsReject;
-
-    private int listMaxSize = 1000000;
+    private List<Integer> cladeIndex0Accept;
+    private List<Integer> cladeIndex0Reject;
+    private List<Integer> cladeIndex1Accept;
+    private List<Integer> cladeIndex1Reject;
+    private List<Long> calculationCountAccept;
+    private List<Long> calculationCountReject;
 
     public SubtreeSlideOperator(DefaultTreeModel tree, double weight, double size, boolean gaussian,
                                 boolean swapRates, boolean swapTraits, boolean scaleDirichletBranches,
@@ -109,10 +110,12 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
         nodeHeight0Reject = new ArrayList<Double>();
         nodeHeight1Accept = new ArrayList<Double>();
         nodeHeight1Reject = new ArrayList<Double>();
-        nodeHeight2Accept = new ArrayList<Double>();
-        nodeHeight2Reject = new ArrayList<Double>();
-        leafCountsAccept = new ArrayList<Integer>();
-        leafCountsReject = new ArrayList<Integer>();
+        cladeIndex0Accept = new ArrayList<Integer>();
+        cladeIndex0Reject = new ArrayList<Integer>();
+        cladeIndex1Accept = new ArrayList<Integer>();
+        cladeIndex1Reject = new ArrayList<Integer>();
+        calculationCountAccept = new ArrayList<Long>();
+        calculationCountReject = new ArrayList<Long>();
     }
 
     /**
@@ -143,11 +146,14 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
         final double oldHeight = tree.getNodeHeight(iP);
         final double newHeight = oldHeight + delta;
 
-        nodeHeights[0] = tree.getNodeHeight(iP);
-        nodeHeights[1] = newHeight;
-        nodeHeights[2] = tree.getNodeHeight(i);
-        leafCounts = TreeUtils.getLeafCount(tree, i);
-        nodeDistance = 0;
+        if (logOperatorStat) {
+            nodeHeights[0] = oldHeight;
+            nodeHeights[1] = newHeight;
+            nodeDistance = 0;
+            if (logCladeOperated) {
+                cladeIndices[0] = getCladeIdx(tree, i);
+            }
+        }
 
         if (DEBUG) {
             System.out.println("\nSubTreeSlideOperator: oldTreeHeight = " + oldTreeHeight);
@@ -165,8 +171,14 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
                 while (tree.getNodeHeight(newParent) < newHeight) {
                     newChild = newParent;
                     newParent = tree.getParent(newParent);
-                    nodeDistance++;
+                    if (logOperatorStat) {
+                        nodeDistance++;
+                    }
                     if (newParent == null) break;
+                }
+
+                if (logOperatorStat && logCladeOperated) {
+                    cladeIndices[1] = getCladeIdx(tree, newChild);
                 }
 
                 tree.beginTreeEdit();
@@ -223,6 +235,9 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
                 // just change the node height
                 tree.setNodeHeight(iP, newHeight);
                 logq = 0.0;
+                if (logOperatorStat && logCladeOperated) {
+                    cladeIndices[1] = getCladeIdx(tree, CiP);
+                }
             }
         }
         // 4 if we are sliding the subtree down.
@@ -230,7 +245,9 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
 
             // 4.0 is it a valid move?
             if (tree.getNodeHeight(i) > newHeight) {
-                nodeDistance = -1;
+                if (logOperatorStat) {
+                    nodeDistance = -1;
+                }
                 return Double.NEGATIVE_INFINITY;
             }
 
@@ -246,7 +263,9 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
 
                 // if no valid destinations then return a failure
                 if (newChildren.size() == 0) {
-                    nodeDistance = -1;
+                    if (logOperatorStat) {
+                        nodeDistance = -1;
+                    }
                     return Double.NEGATIVE_INFINITY;
                 }
 
@@ -259,7 +278,12 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
                 }
                 NodeRef newChild = newChildren.get(childIndex);
                 NodeRef newParent = tree.getParent(newChild);
-                nodeDistance = getNodeDistance(tree, iP, newParent);
+                if (logOperatorStat) {
+                    nodeDistance = getNodeDistance(tree, iP, newParent);
+                    if (logCladeOperated) {
+                        cladeIndices[1] = getCladeIdx(tree, newChild);
+                    }
+                }
 
                 if (DEBUG) {
                     System.out.println("childIndex: " + childIndex);
@@ -317,6 +341,9 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
             } else {
                 tree.setNodeHeight(iP, newHeight);
                 logq = 0.0;
+                if (logOperatorStat && logCladeOperated) {
+                    cladeIndices[1] = getCladeIdx(tree, CiP);
+                }
             }
         }
 
@@ -423,41 +450,36 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
     public void accept(double deviation) {
         super.accept(deviation);
 
-        nodeDistanceAccept.add(nodeDistance);
-        nodeHeight0Accept.add(nodeHeights[0]);
-        nodeHeight1Accept.add(nodeHeights[1]);
-        nodeHeight2Accept.add(nodeHeights[2]);
-        leafCountsAccept.add(leafCounts);
-
-        if (nodeDistanceAccept.size() > listMaxSize) {
-            nodeDistanceAccept.remove(0);
-            nodeHeight0Accept.remove(0);
-            nodeHeight1Accept.remove(0);
-            nodeHeight2Accept.remove(0);
-            leafCountsAccept.remove(0);
+        if (logOperatorStat) {
+            nodeDistanceAccept.add(nodeDistance);
+            nodeHeight0Accept.add(nodeHeights[0]);
+            nodeHeight1Accept.add(nodeHeights[1]);
+            if (logCladeOperated) {
+                cladeIndex0Accept.add(cladeIndices[0]);
+                cladeIndex1Accept.add(cladeIndices[1]);
+            }
+            calculationCountAccept.add(calculationCount);
         }
     }
 
     public void reject() {
         super.reject();
 
-        nodeDistanceReject.add(nodeDistance);
-        nodeHeight0Reject.add(nodeHeights[0]);
-        nodeHeight1Reject.add(nodeHeights[1]);
-        nodeHeight2Reject.add(nodeHeights[2]);
-        leafCountsReject.add(leafCounts);
-
-        if (nodeDistanceReject.size() > listMaxSize) {
-            nodeDistanceReject.remove(0);
-            nodeHeight0Reject.remove(0);
-            nodeHeight1Reject.remove(0);
-            nodeHeight2Reject.remove(0);
-            leafCountsReject.remove(0);
+        if (logOperatorStat) {
+            nodeDistanceReject.add(nodeDistance);
+            nodeHeight0Reject.add(nodeHeights[0]);
+            nodeHeight1Reject.add(nodeHeights[1]);
+            if (logCladeOperated) {
+                cladeIndex0Reject.add(cladeIndices[0]);
+                cladeIndex1Reject.add(cladeIndices[1]);
+            }
+            calculationCountReject.add(calculationCount);
         }
     }
 
     public LogColumn[] getColumns() {
         List<LogColumn> columns = new ArrayList<LogColumn>(Arrays.asList(super.getColumns()));
+        logOperatorStat = true;
 
         columns.add(getOperatorColumnInt("nodeDistAcc", nodeDistanceAccept));
         columns.add(getOperatorColumnInt("nodeDistRej", nodeDistanceReject));
@@ -465,10 +487,16 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
         columns.add(getOperatorColumnDouble("nodeheightP0Rej", nodeHeight0Reject));
         columns.add(getOperatorColumnDouble("nodeheightP1Acc", nodeHeight1Accept));
         columns.add(getOperatorColumnDouble("nodeheightP1Rej", nodeHeight1Reject));
-        columns.add(getOperatorColumnDouble("nodeheightCAcc", nodeHeight2Accept));
-        columns.add(getOperatorColumnDouble("nodeheightCRej", nodeHeight2Reject));
-        columns.add(getOperatorColumnInt("leafCountsAcc", leafCountsAccept));
-        columns.add(getOperatorColumnInt("leafCountsRej", leafCountsReject));
+
+        if (logCladeOperated) {
+            columns.add(getOperatorColumnInt("cladeId0Acc", cladeIndex0Accept));
+            columns.add(getOperatorColumnInt("cladeId0Rej", cladeIndex0Reject));
+            columns.add(getOperatorColumnInt("cladeId1Acc", cladeIndex1Accept));
+            columns.add(getOperatorColumnInt("cladeId1Rej", cladeIndex1Reject));
+        }
+
+        columns.add(getOperatorColumnLong("calcountAcc", calculationCountAccept));
+        columns.add(getOperatorColumnLong("calcountRej", calculationCountReject));
 
         return columns.toArray(new LogColumn[columns.size()]);
     }

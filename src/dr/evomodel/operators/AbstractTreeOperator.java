@@ -45,6 +45,11 @@ public abstract class AbstractTreeOperator extends SimpleMCMCOperator {
 
 	private long transitions = 0;
 
+    protected CladeOperated cladeOperated;
+    protected boolean logCladeOperated = false;
+
+    protected long calculationCount = 0;
+
 	/**
      * @return the number of transitions since last call to reset().
      */
@@ -60,6 +65,19 @@ public abstract class AbstractTreeOperator extends SimpleMCMCOperator {
      */
     public void setTransitions(long transitions) {
     	this.transitions = transitions;
+    }
+
+    public void setCladeOperated(CladeOperated cladeOperated) {
+    	this.cladeOperated = cladeOperated;
+        logCladeOperated = true;
+    }
+
+    protected void setLogCladeOperated(boolean logCladeOperated) {
+        this.logCladeOperated = logCladeOperated;
+    }
+
+    protected int getCladeIdx(Tree tree, NodeRef node) {
+        return cladeOperated.getCladeIdx(tree, node);
     }
 
     public double getTransistionProbability() {
@@ -115,7 +133,24 @@ public abstract class AbstractTreeOperator extends SimpleMCMCOperator {
         return count;
     }
 
+    public void addCalculationCount(long count) {
+        super.addCalculationCount(count);
+        calculationCount = count;
+    }
+
     public String toStringStat(Integer[] v) {
+		StringBuilder sb = new StringBuilder("{");
+		for (int i = 0; i < v.length; i++) {
+            sb.append(v[i]);
+            if (i < v.length - 1) {
+                sb.append(",");
+            }
+        }
+        sb.append("}");
+        return sb.toString();
+	}
+
+    public String toStringStat(Long[] v) {
 		StringBuilder sb = new StringBuilder("{");
 		for (int i = 0; i < v.length; i++) {
             sb.append(v[i]);
@@ -160,6 +195,20 @@ public abstract class AbstractTreeOperator extends SimpleMCMCOperator {
             @Override
             protected String getFormattedValue() {
                 Integer[] stats = statlist.toArray(new Integer[statlist.size()]);
+                statlist.clear();
+                return toStringStat(stats);
+            }
+        };
+
+        return column;
+    }
+
+    public LogColumn getOperatorColumnLong(String label, List<Long> statlist) {
+
+        LogColumn column = new LogColumn.Abstract(getOperatorName() + "_" + label) {
+            @Override
+            protected String getFormattedValue() {
+                Long[] stats = statlist.toArray(new Long[statlist.size()]);
                 statlist.clear();
                 return toStringStat(stats);
             }

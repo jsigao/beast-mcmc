@@ -53,6 +53,8 @@ public class WilsonBalding extends AbstractTreeOperator implements Constrainable
     private double pathLength;
     private double[] nodeHeights = new double[2];
     private int leafCounts;
+    private int[] cladeIndices = new int[2];
+    protected boolean logOperatorStat = false;
 
     private List<Integer> nodeDistanceAccept;
     private List<Integer> nodeDistanceReject;
@@ -62,10 +64,12 @@ public class WilsonBalding extends AbstractTreeOperator implements Constrainable
     private List<Double> nodeHeight0Reject;
     private List<Double> nodeHeight1Accept;
     private List<Double> nodeHeight1Reject;
-    private List<Integer> leafCountsAccept;
-    private List<Integer> leafCountsReject;
-
-    private int listMaxSize = 1000000;
+    private List<Integer> cladeIndex0Accept;
+    private List<Integer> cladeIndex0Reject;
+    private List<Integer> cladeIndex1Accept;
+    private List<Integer> cladeIndex1Reject;
+    private List<Long> calculationCountAccept;
+    private List<Long> calculationCountReject;
 
     public WilsonBalding(TreeModel tree, double weight) {
         this.tree = tree;
@@ -79,8 +83,12 @@ public class WilsonBalding extends AbstractTreeOperator implements Constrainable
         nodeHeight0Reject = new ArrayList<Double>();
         nodeHeight1Accept = new ArrayList<Double>();
         nodeHeight1Reject = new ArrayList<Double>();
-        leafCountsAccept = new ArrayList<Integer>();
-        leafCountsReject = new ArrayList<Integer>();
+        cladeIndex0Accept = new ArrayList<Integer>();
+        cladeIndex0Reject = new ArrayList<Integer>();
+        cladeIndex1Accept = new ArrayList<Integer>();
+        cladeIndex1Reject = new ArrayList<Integer>();
+        calculationCountAccept = new ArrayList<Long>();
+        calculationCountReject = new ArrayList<Long>();
     }
 
     public double doOperation(TreeModel tree) {
@@ -132,11 +140,21 @@ public class WilsonBalding extends AbstractTreeOperator implements Constrainable
             k = tree.getParent(j);
         }
 
-        nodeDistance = getNodeDistance(tree, i, j);
-        pathLength = TreeUtils.getPathLength(tree, i, j);
-        nodeHeights[0] = tree.getNodeHeight(iP);
-        nodeHeights[1] = -1;
-        leafCounts = TreeUtils.getLeafCount(tree, i);
+        NodeRef ca = TreeUtils.getCommonAncestorNode(tree, iP, j);
+        if (logOperatorStat) {
+            if (ca == j) {
+                nodeDistance = getNodeDistance(tree, iP, j);
+            } else {
+                nodeDistance = getNodeDistance(tree, iP, j) - 1;
+            }
+            pathLength = -1;
+            nodeHeights[0] = tree.getNodeHeight(iP);
+            nodeHeights[1] = -1;
+            if (logCladeOperated) {
+                cladeIndices[0] = getCladeIdx(tree, i);
+                cladeIndices[1] = getCladeIdx(tree, j);
+            }
+        }
 
         // disallow moves that change the root.
         if (j == tree.getRoot() || iP == tree.getRoot()) {
@@ -191,7 +209,16 @@ public class WilsonBalding extends AbstractTreeOperator implements Constrainable
         oldMinAge = Math.max(tree.getNodeHeight(i), tree.getNodeHeight(CiP));
         oldRange = tree.getNodeHeight(PiP) - oldMinAge;
         q = newRange / Math.abs(oldRange);
-        nodeHeights[1] = newAge;
+
+        if (logOperatorStat) {
+            nodeHeights[1] = newAge;
+            if (ca == j) {
+                pathLength = newAge - tree.getNodeHeight(iP);
+            } else {
+                pathLength = TreeUtils.getPathLength(tree, iP, k) + tree.getNodeHeight(k) - newAge;
+            }
+        }
+        
         //System.out.println(newRange + "/" + oldRange + "=" + q);
 //		}
 
@@ -277,41 +304,38 @@ public class WilsonBalding extends AbstractTreeOperator implements Constrainable
     public void accept(double deviation) {
         super.accept(deviation);
 
-        nodeDistanceAccept.add(nodeDistance);
-        pathLengthAccept.add(pathLength);
-        nodeHeight0Accept.add(nodeHeights[0]);
-        nodeHeight1Accept.add(nodeHeights[1]);
-        leafCountsAccept.add(leafCounts);
-
-        if (nodeDistanceAccept.size() > listMaxSize) {
-            nodeDistanceAccept.remove(0);
-            pathLengthAccept.remove(0);
-            nodeHeight0Accept.remove(0);
-            nodeHeight1Accept.remove(0);
-            leafCountsAccept.remove(0);
+        if (logOperatorStat) {
+            nodeDistanceAccept.add(nodeDistance);
+            pathLengthAccept.add(pathLength);
+            nodeHeight0Accept.add(nodeHeights[0]);
+            nodeHeight1Accept.add(nodeHeights[1]);
+            if (logCladeOperated) {
+                cladeIndex0Accept.add(cladeIndices[0]);
+                cladeIndex1Accept.add(cladeIndices[1]);
+            }
+            calculationCountAccept.add(calculationCount);
         }
     }
 
     public void reject() {
         super.reject();
 
-        nodeDistanceReject.add(nodeDistance);
-        pathLengthReject.add(pathLength);
-        nodeHeight0Reject.add(nodeHeights[0]);
-        nodeHeight1Reject.add(nodeHeights[1]);
-        leafCountsReject.add(leafCounts);
-
-        if (nodeDistanceReject.size() > listMaxSize) {
-            nodeDistanceReject.remove(0);
-            pathLengthReject.remove(0);
-            nodeHeight0Reject.remove(0);
-            nodeHeight1Reject.remove(0);
-            leafCountsReject.remove(0);
+        if (logOperatorStat) {
+            nodeDistanceReject.add(nodeDistance);
+            pathLengthReject.add(pathLength);
+            nodeHeight0Reject.add(nodeHeights[0]);
+            nodeHeight1Reject.add(nodeHeights[1]);
+            if (logCladeOperated) {
+                cladeIndex0Reject.add(cladeIndices[0]);
+                cladeIndex1Reject.add(cladeIndices[1]);
+            }
+            calculationCountReject.add(calculationCount);
         }
     }
 
     public LogColumn[] getColumns() {
         List<LogColumn> columns = new ArrayList<LogColumn>(Arrays.asList(super.getColumns()));
+        logOperatorStat = true;
 
         columns.add(getOperatorColumnInt("nodeDistAcc", nodeDistanceAccept));
         columns.add(getOperatorColumnInt("nodeDistRej", nodeDistanceReject));
@@ -321,8 +345,16 @@ public class WilsonBalding extends AbstractTreeOperator implements Constrainable
         columns.add(getOperatorColumnDouble("nodeheightP0Rej", nodeHeight0Reject));
         columns.add(getOperatorColumnDouble("nodeheightP1Acc", nodeHeight1Accept));
         columns.add(getOperatorColumnDouble("nodeheightP1Rej", nodeHeight1Reject));
-        columns.add(getOperatorColumnInt("leafCountsAcc", leafCountsAccept));
-        columns.add(getOperatorColumnInt("leafCountsRej", leafCountsReject));
+
+        if (logCladeOperated) {
+            columns.add(getOperatorColumnInt("cladeId0Acc", cladeIndex0Accept));
+            columns.add(getOperatorColumnInt("cladeId0Rej", cladeIndex0Reject));
+            columns.add(getOperatorColumnInt("cladeId1Acc", cladeIndex1Accept));
+            columns.add(getOperatorColumnInt("cladeId1Rej", cladeIndex1Reject));
+        }
+
+        columns.add(getOperatorColumnLong("calcountAcc", calculationCountAccept));
+        columns.add(getOperatorColumnLong("calcountRej", calculationCountReject));
 
         return columns.toArray(new LogColumn[columns.size()]);
     }
