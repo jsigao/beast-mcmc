@@ -197,12 +197,12 @@ public abstract class SimpleMCMCOperator implements MCMCOperator, Loggable {
 
     @Override
     public double getMeanEvaluationTime() {
-        return (double) sumEvaluationTime / (double) (acceptCount + rejectCount);
+        return (double) (getTotalEvaluationTime()) / (double) (acceptCount + rejectCount);
     }
 
     @Override
     public long getTotalEvaluationTime() {
-        return sumEvaluationTime;
+        return sumEvaluationTime / 1000000;
     }
 
     @Override
