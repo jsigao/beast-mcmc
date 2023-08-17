@@ -59,6 +59,7 @@ public class TreeLoggerParser extends LoggerParser {
     public static final String SORT_TRANSLATION_TABLE = "sortTranslationTable";
     public static final String MAP_NAMES = "mapNamesToNumbers";
     public static final String DECIMAL_PLACES = "dp";
+    public static final String TOPOLOGY_ONLY = "topologyOnly";
     //    public static final String NORMALISE_MEAN_RATE_TO = "normaliseMeanRateTo";
 
     public static final String FILTER_TRAITS = "traitFilter";
@@ -356,6 +357,11 @@ public class TreeLoggerParser extends LoggerParser {
             logger.setTitle(title);
         }
 
+        if (xo.hasAttribute(TOPOLOGY_ONLY)) {
+            boolean topoOnly = xo.getBooleanAttribute(TOPOLOGY_ONLY);
+            logger.setTopoOnly(topoOnly);
+        }
+
         return logger;
     }
 
@@ -397,6 +403,7 @@ public class TreeLoggerParser extends LoggerParser {
             AttributeRule.newStringRule(FILTER_TRAITS, true),
             AttributeRule.newBooleanRule(MAP_NAMES, true),
             AttributeRule.newIntegerRule(DECIMAL_PLACES, true),
+            AttributeRule.newBooleanRule(TOPOLOGY_ONLY, true),
 
             new ElementRule(Tree.class, "The tree which is to be logged"),
 //            new ElementRule(BranchRates.class, true),

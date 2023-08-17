@@ -55,6 +55,7 @@ public class TreeLogger extends MCLogger {
     private final Map<String, Integer> idMap = new HashMap<String, Integer>();
     private final List<String> taxaIds = new ArrayList<String>();
     private boolean mapNames = true;
+    private boolean topoOnly = false;
 
     /*private double normaliseMeanRateTo = Double.NaN;
     boolean normaliseMeanRate = false;*/
@@ -237,8 +238,13 @@ public class TreeLogger extends MCLogger {
                         format, branchRates, treeTraitProviders, idMap, buffer);
             } else {
                 //System.out.println(treeTraitProviders.length);
-                TreeUtils.newick(tree, tree.getRoot(), !mapNames, TreeUtils.BranchLengthType.LENGTHS_AS_TIME,
+                if (topoOnly == false) {
+                    TreeUtils.newick(tree, tree.getRoot(), !mapNames, TreeUtils.BranchLengthType.LENGTHS_AS_TIME,
                         format, null, treeTraitProviders, idMap, buffer);
+                } else {
+                    TreeUtils.newick(tree, tree.getRoot(), !mapNames, TreeUtils.BranchLengthType.NO_BRANCH_LENGTHS,
+                        format, null, treeTraitProviders, idMap, buffer);
+                }
             }
 
             buffer.append(";");
@@ -270,5 +276,9 @@ public class TreeLogger extends MCLogger {
     public BranchRates getBranchRates() {
         return this.branchRates;
     }
+
+    public void setTopoOnly(boolean topoOnly) {
+		this.topoOnly = topoOnly;
+	}
 
 }
