@@ -64,7 +64,7 @@ public class BeastCheckpointer implements StateLoaderSaver {
 
     public final static String FORCE_RESUME = "force.resume";
     public final static String CHECKPOINT_SEED = "checkpoint.seed";
-
+    public final static String REUSE_CHECKPOINTED_RNGSTATE = "reuse.checkpointed.rngstate";
     public final static String FULL_CHECKPOINT_PRECISION = "full.checkpoint.precision";
 
     private final String loadStateFileName;
@@ -693,7 +693,11 @@ public class BeastCheckpointer implements StateLoaderSaver {
                 }
             }
 
-            if (System.getProperty(BeastCheckpointer.CHECKPOINT_SEED) != null) {
+            boolean reuseCheckpointedRngState = false;
+            if (System.getProperty(REUSE_CHECKPOINTED_RNGSTATE) != null) {
+                reuseCheckpointedRngState = Boolean.parseBoolean(System.getProperty(REUSE_CHECKPOINTED_RNGSTATE));
+            }
+            if (reuseCheckpointedRngState == false && System.getProperty(BeastCheckpointer.CHECKPOINT_SEED) != null) {
                 MathUtils.setSeed(Long.parseLong(System.getProperty(BeastCheckpointer.CHECKPOINT_SEED)));
             } else if (rngState != null) {
                 MathUtils.setRandomState(rngState);

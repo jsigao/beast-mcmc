@@ -398,6 +398,7 @@ public class BeastMain {
                         new Arguments.StringOption("save_state", "FILENAME", "Specify a filename to save state to"),
                         new Arguments.Option("full_checkpoint_precision", "Use hex-encoded doubles in checkpoint files"),
                         new Arguments.Option("force_resume", "Force resuming from a saved state"),
+                        new Arguments.Option("reuse_checkpointed_rngstate", "Reuse the rngstate recorded in checkpoint files to restore the random number generator state"),
 
                         new Arguments.StringOption("citations_file", "FILENAME", "Specify a filename to write a citation list to"),
 
@@ -696,6 +697,10 @@ public class BeastMain {
 
             if (arguments.hasOption("force_resume")) {
                 System.setProperty("force.resume", Boolean.TRUE.toString());
+            }
+
+            if (arguments.hasOption("reuse_checkpointed_rngstate")) {
+                System.setProperty("reuse.checkpointed.rngstate", Boolean.TRUE.toString());
             }
 
             if (arguments.hasOption("citations_file")) {
