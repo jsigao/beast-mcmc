@@ -35,6 +35,8 @@ import dr.evolution.util.Taxon;
 import dr.evolution.util.TaxonList;
 import dr.util.Version;
 
+import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
@@ -62,6 +64,8 @@ public class TreeSummary {
      * @param includeTips
      * @param targetAttributeName
      * @param cladeOnly
+     * @param translateTips
+     * @param cladeFileName
      * @param inputFileName
      * @param outputFileName
      * @param outputFileName2
@@ -78,6 +82,8 @@ public class TreeSummary {
                        boolean createCladeAttribute,
                        String targetAttributeName,
                        boolean cladeOnly,
+                       boolean translateTips,
+                       String cladeFileName,
                        String inputFileName,
                        String outputFileName,
                        String outputFileName2
@@ -172,7 +178,13 @@ public class TreeSummary {
 
         if (createCladeAttribute || createCladeMap) {
 
-            Map<BitSet, Integer> cladeCountMap = cladeSystem.getCladeCounts(cladeFreqMin, cladeFreqMax);
+            Map<BitSet, Integer> cladeCountMap = new HashMap<BitSet, Integer>();
+            if (cladeFileName != null) {
+                cladeCountMap = cladeSystem.getCladeCounts(cladeFileName);
+            } else {
+                cladeCountMap = cladeSystem.getCladeCounts(cladeFreqMin, cladeFreqMax);
+            }
+
             final PrintStream stream2 = outputFileName2 != null ?
                     new PrintStream(new FileOutputStream(outputFileName2)) :
                     System.out;
@@ -200,7 +212,9 @@ public class TreeSummary {
                 stream2.print("\t");
                 stream2.print(cladeSystem.getCladeCredibility(bits));
                 stream2.print("\t");
-                stream2.println(cladeSystem.getCladeString(bits));
+                String cladeString = translateTips ? cladeSystem.getCladeString(bits) : bits.toString();
+                stream2.println(cladeString);
+                
                 n++;
             }
             stream2.close();
@@ -803,6 +817,77 @@ public class TreeSummary {
             return countMap;
         }
 
+        public Map<BitSet, Integer> getCladeCounts(String cladeFileName) {
+            if (cladeFileName == null) {
+                getCladeCounts();
+            }
+            File cladeFile = new File(cladeFileName);
+            if (cladeFile.exists() == false) {
+                System.err.println("Unable to find the provided clade file.");
+                getCladeCounts();
+            }
+
+            try {
+                BufferedReader reader = new BufferedReader(new FileReader(cladeFile));
+                String line = reader.readLine();
+                if (line == null) {
+                    reader.close();
+                    System.err.println("No clade in the provided clade file.");
+                    getCladeCounts();
+                }
+                while ((line != null) && (line.startsWith("[") || line.startsWith("#") || line.indexOf("{") == -1 || line.indexOf("}") == -1)) {
+                    line = reader.readLine();
+                }
+                if (line == null) {
+                    reader.close();
+                    System.err.println("No clade in the provided clade file.");
+                    getCladeCounts();
+                }
+
+                Map<BitSet, Integer> countMap = new HashMap<BitSet, Integer>();
+
+                while (line != null) {
+                    int startIndex = line.indexOf('{');
+                    int endIndex = line.indexOf('}');
+                    String bitString = line.substring(startIndex + 1, endIndex);
+
+                    String[] bitStringStr = bitString.split(", ");
+                    if (bitStringStr.length == 1) {
+                        bitStringStr = bitString.split(",");
+                    }
+
+                    BitSet bits = new BitSet();
+                    for (String str : bitStringStr) {
+                        int index;
+                        if (str.matches("\\d+")) {
+                            index = Integer.parseInt(str);
+                        } else {
+                            index = taxonList.getTaxonIndex(str);
+                            if (index == -1) {
+                                throw new RuntimeException("Invalid taxon");
+                            }
+                        }
+                        bits.set(index);
+                    }
+
+                    if (countMap.containsKey(bits)) {
+                        throw new RuntimeException("Duplicate clade found");
+                    } else {
+                        int count = cladeMap.containsKey(bits) ? getCladeCount(bits) : 0;
+                        countMap.put(bits, count);
+                    }
+
+                    line = reader.readLine();
+                }
+
+                reader.close();
+                return countMap;
+
+            } catch (IOException ioe) {
+                throw new RuntimeException("Unable to read file: " + ioe.getMessage());
+            }            
+        }
+
         public String getCladeString(BitSet bits) {
             StringBuilder sb = new StringBuilder("{");
             int index = bits.nextSetBit(0);
@@ -813,7 +898,7 @@ public class TreeSummary {
             while (index != -1) {
                 sb.append(",");
                 sb.append(taxonList.getTaxon(index).getId());
-                 index = bits.nextSetBit(index + 1);
+                index = bits.nextSetBit(index + 1);
             }
             sb.append("}");
             return sb.toString();
@@ -961,11 +1046,13 @@ public class TreeSummary {
                         new Arguments.Option("clademap", "show states of all clades over chain length"),
                         new Arguments.Option("cladeAttribute", "show states of the target attribute of all clades over chain length"),
                         new Arguments.RealOption("limit", "the minimum posterior probability for a subtree to be included"),
-                        new Arguments.RealOption("cladeFreqMin", "the minimum posterior probability for clade to be included"),
+                        new Arguments.RealOption("cladeFreqMin", "the minimum posterior probability for a clade to be included"),
                         new Arguments.RealOption("cladeFreqMax", "clades with posterior probability smaller than this value will be included"),
                         new Arguments.StringOption("targetAttribute", "target_attribute", "the attribute to log"),
                         new Arguments.Option("excludeTips", "exclude tips in clades"),
                         new Arguments.Option("cladeOnly", "only generate clade report but not their states across the chain"),
+                        new Arguments.Option("tipId", "output tip indices instead of tip labels in the clade report"),
+                        new Arguments.StringOption("cladeFile", "clade file name", "path to file containing the clades to include"),
                         new Arguments.Option("help", "option to print this message")
                 });
 
@@ -1036,6 +1123,16 @@ public class TreeSummary {
             cladeOnly = true;
         }
 
+        boolean translateTips = true;
+        if (arguments.hasOption("tipId")) {
+            translateTips = false;
+        }
+
+        String cladeFileName = null;
+        if (arguments.hasOption("cladeFile")) {
+            cladeFileName = arguments.getStringOption("cladeFile");
+        }
+
         final String[] args2 = arguments.getLeftoverArguments();
         if (args2.length > ((createCladeMap || createCladeAttribute) ? 3 : 2)) {
             System.err.println("Unknown option: " + args2[((createCladeMap || createCladeAttribute) ? 3 : 2)]);
@@ -1054,7 +1151,7 @@ public class TreeSummary {
             outputFileName2 = args2[2];
         }
 
-        new TreeSummary(burninTrees, burninStates, posteriorLimit, cladeFreqMin, cladeFreqMax, includeTips, createSummaryTree, createCladeMap, createCladeAttribute, targetAttributeName, cladeOnly, inputFileName, outputFileName, outputFileName2);
+        new TreeSummary(burninTrees, burninStates, posteriorLimit, cladeFreqMin, cladeFreqMax, includeTips, createSummaryTree, createCladeMap, createCladeAttribute, targetAttributeName, cladeOnly, translateTips, cladeFileName, inputFileName, outputFileName, outputFileName2);
 
         System.exit(0);
     }
