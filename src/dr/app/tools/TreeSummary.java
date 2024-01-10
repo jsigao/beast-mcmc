@@ -180,7 +180,7 @@ public class TreeSummary {
 
         if (createCladeAttribute || createCladeMap) {
 
-            Map<BitSet, Integer> cladeCountMap = new HashMap<BitSet, Integer>();
+            Map<BitSet, Integer> cladeCountMap = new LinkedHashMap<BitSet, Integer>();
             if (cladeFileName != null) {
                 cladeCountMap = cladeSystem.getCladeCounts(cladeFileName);
             } else {
@@ -793,7 +793,7 @@ public class TreeSummary {
         }
 
         public Map<BitSet, Integer> getCladeCounts() {
-            Map<BitSet, Integer> countMap = new HashMap<BitSet, Integer>();
+            Map<BitSet, Integer> countMap = new LinkedHashMap<BitSet, Integer>();
 
             for (BitSet bits : cladeMap.keySet()) {
                 int count = getCladeCount(bits);
@@ -810,7 +810,7 @@ public class TreeSummary {
                 return getCladeCounts();
             }
             
-            Map<BitSet, Integer> countMap = new HashMap<BitSet, Integer>();
+            Map<BitSet, Integer> countMap = new LinkedHashMap<BitSet, Integer>();
 
             for (BitSet bits : cladeMap.keySet()) {
                 if (includeTips == false && bits.cardinality() == 1) {
@@ -856,7 +856,7 @@ public class TreeSummary {
                     return getCladeCounts();
                 }
 
-                Map<BitSet, Integer> countMap = new HashMap<BitSet, Integer>();
+                Map<BitSet, Integer> countMap = new LinkedHashMap<BitSet, Integer>();
 
                 while (line != null) {
                     int startIndex = line.indexOf('{');
