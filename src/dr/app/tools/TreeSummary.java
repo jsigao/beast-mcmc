@@ -62,6 +62,7 @@ public class TreeSummary {
      * @param cladeFreqMin
      * @param cladeFreqMax
      * @param includeTips
+     * @param includeRoot
      * @param targetAttributeName
      * @param cladeOnly
      * @param translateTips
@@ -77,6 +78,7 @@ public class TreeSummary {
                        double cladeFreqMin,
                        double cladeFreqMax,
                        boolean includeTips,
+                       boolean includeRoot,
                        boolean createSummaryTree,
                        boolean createCladeMap,
                        boolean createCladeAttribute,
@@ -133,7 +135,7 @@ public class TreeSummary {
                         burnin = totalTrees;
                     }
 
-                    cladeSystem.add(tree, includeTips);
+                    cladeSystem.add(tree, true, true);
 
                     totalTreesUsed += 1;
                 }
@@ -182,7 +184,7 @@ public class TreeSummary {
             if (cladeFileName != null) {
                 cladeCountMap = cladeSystem.getCladeCounts(cladeFileName);
             } else {
-                cladeCountMap = cladeSystem.getCladeCounts(cladeFreqMin, cladeFreqMax);
+                cladeCountMap = cladeSystem.getCladeCounts(cladeFreqMin, cladeFreqMax, includeTips, includeRoot);
             }
 
             final PrintStream stream2 = outputFileName2 != null ?
@@ -330,7 +332,7 @@ public class TreeSummary {
 
                             StringBuilder sb = new StringBuilder(Long.toString(state));
 
-                            Set<BitSet> cladeSet = cladeSystem.getCladeSet(tree, includeTips);
+                            Set<BitSet> cladeSet = cladeSystem.getCladeSet(tree, includeTips, includeRoot);
                             if (createCladeAttribute) {
                                 cladeSystem.collectAttribute(tree, targetAttributeName);
                             }
@@ -506,7 +508,7 @@ public class TreeSummary {
         /**
          * adds all the clades in the tree
          */
-        public void add(Tree tree, boolean includeTips) {
+        public void add(Tree tree, boolean includeTips, boolean includeRoot) {
             if (taxonList == null) {
                 taxonList = tree;
             }
@@ -514,10 +516,10 @@ public class TreeSummary {
             // Recurse over the tree and add all the clades (or increment their
             // frequency if already present). The root clade is added too (for
             // annotation purposes).
-            addClades(tree, tree.getRoot(), includeTips);
+            addClades(tree, tree.getRoot(), includeTips, includeRoot);
         }
 
-        private BitSet addClades(Tree tree, NodeRef node, boolean includeTips) {
+        private BitSet addClades(Tree tree, NodeRef node, boolean includeTips, boolean includeRoot) {
 
             BitSet bits = new BitSet();
 
@@ -536,10 +538,12 @@ public class TreeSummary {
 
                     NodeRef node1 = tree.getChild(node, i);
 
-                    bits.or(addClades(tree, node1, includeTips));
+                    bits.or(addClades(tree, node1, includeTips, includeRoot));
                 }
 
-                addClade(bits);
+                if (tree.isRoot(node) == false || (tree.isRoot(node) && includeRoot)) {
+                    addClade(bits);
+                }
             }
 
             return bits;
@@ -584,7 +588,7 @@ public class TreeSummary {
                     if (clade.conditionalCladeSystem == null) {
                         clade.conditionalCladeSystem = new CladeSystem(taxonList);
                     }
-                    clade.conditionalCladeSystem.addClades(tree, node, false);
+                    clade.conditionalCladeSystem.addClades(tree, node, false, true);
                 }
             }
 
@@ -746,7 +750,7 @@ public class TreeSummary {
             return taxonList.getTaxon(index);
         }
 
-        private BitSet getClades(Tree tree, NodeRef node, boolean includeTips, Set<BitSet> cladeSet) {
+        private BitSet getClades(Tree tree, NodeRef node, boolean includeTips, boolean includeRoot, Set<BitSet> cladeSet) {
 
             BitSet bits = new BitSet();
 
@@ -765,10 +769,12 @@ public class TreeSummary {
 
                     NodeRef node1 = tree.getChild(node, i);
 
-                    bits.or(getClades(tree, node1, includeTips, cladeSet));
+                    bits.or(getClades(tree, node1, includeTips, includeRoot, cladeSet));
                 }
 
-                cladeSet.add(bits);
+                if (tree.isRoot(node) == false || (tree.isRoot(node) && includeRoot)) {
+                    cladeSet.add(bits);
+                }
             }
 
             return bits;
@@ -776,13 +782,13 @@ public class TreeSummary {
 
         public Set<BitSet> getCladeSet(Tree tree) {
             Set<BitSet> cladeSet = new HashSet<BitSet>();
-            getClades(tree, tree.getRoot(), false, cladeSet);
+            getClades(tree, tree.getRoot(), false, true, cladeSet);
             return cladeSet;
         }
 
-        public Set<BitSet> getCladeSet(Tree tree, boolean includeTips) {
+        public Set<BitSet> getCladeSet(Tree tree, boolean includeTips, boolean includeRoot) {
             Set<BitSet> cladeSet = new HashSet<BitSet>();
-            getClades(tree, tree.getRoot(), includeTips, cladeSet);
+            getClades(tree, tree.getRoot(), includeTips, includeRoot, cladeSet);
             return cladeSet;
         }
 
@@ -799,14 +805,20 @@ public class TreeSummary {
             return countMap;
         }
 
-        public Map<BitSet, Integer> getCladeCounts(double cladeFreqMin, double cladeFreqMax) {
-            if (cladeFreqMin <= 0 && cladeFreqMax > 1) {
-                getCladeCounts();
+        public Map<BitSet, Integer> getCladeCounts(double cladeFreqMin, double cladeFreqMax, boolean includeTips, boolean includeRoot) {
+            if (cladeFreqMin <= 0 && cladeFreqMax > 1 && includeTips && includeRoot) {
+                return getCladeCounts();
             }
             
             Map<BitSet, Integer> countMap = new HashMap<BitSet, Integer>();
 
             for (BitSet bits : cladeMap.keySet()) {
+                if (includeTips == false && bits.cardinality() == 1) {
+                    continue;
+                }
+                if (includeRoot == false && bits.cardinality() == taxonList.getTaxonCount()) {
+                    continue;
+                }
                 int count = getCladeCount(bits);
                 double prob = getCladeCredibility(bits);
                 if (count > 1 && prob > cladeFreqMin && prob < cladeFreqMax) {
@@ -819,12 +831,12 @@ public class TreeSummary {
 
         public Map<BitSet, Integer> getCladeCounts(String cladeFileName) {
             if (cladeFileName == null) {
-                getCladeCounts();
+                return getCladeCounts();
             }
             File cladeFile = new File(cladeFileName);
             if (cladeFile.exists() == false) {
                 System.err.println("Unable to find the provided clade file.");
-                getCladeCounts();
+                return getCladeCounts();
             }
 
             try {
@@ -833,7 +845,7 @@ public class TreeSummary {
                 if (line == null) {
                     reader.close();
                     System.err.println("No clade in the provided clade file.");
-                    getCladeCounts();
+                    return getCladeCounts();
                 }
                 while ((line != null) && (line.startsWith("[") || line.startsWith("#") || line.indexOf("{") == -1 || line.indexOf("}") == -1)) {
                     line = reader.readLine();
@@ -841,7 +853,7 @@ public class TreeSummary {
                 if (line == null) {
                     reader.close();
                     System.err.println("No clade in the provided clade file.");
-                    getCladeCounts();
+                    return getCladeCounts();
                 }
 
                 Map<BitSet, Integer> countMap = new HashMap<BitSet, Integer>();
@@ -1050,6 +1062,7 @@ public class TreeSummary {
                         new Arguments.RealOption("cladeFreqMax", "clades with posterior probability smaller than this value will be included"),
                         new Arguments.StringOption("targetAttribute", "target_attribute", "the attribute to log"),
                         new Arguments.Option("excludeTips", "exclude tips in clades"),
+                        new Arguments.Option("excludeRoot", "exclude the root in clades"),
                         new Arguments.Option("cladeOnly", "only generate clade report but not their states across the chain"),
                         new Arguments.Option("tipId", "output tip indices instead of tip labels in the clade report"),
                         new Arguments.StringOption("cladeFile", "clade file name", "path to file containing the clades to include"),
@@ -1096,6 +1109,11 @@ public class TreeSummary {
         boolean includeTips = true;
         if (arguments.hasOption("excludeTips")) {
             includeTips = false;
+        }
+
+        boolean includeRoot = true;
+        if (arguments.hasOption("excludeRoot")) {
+            includeRoot = false;
         }
 
         boolean createCladeMap = false;
@@ -1151,7 +1169,7 @@ public class TreeSummary {
             outputFileName2 = args2[2];
         }
 
-        new TreeSummary(burninTrees, burninStates, posteriorLimit, cladeFreqMin, cladeFreqMax, includeTips, createSummaryTree, createCladeMap, createCladeAttribute, targetAttributeName, cladeOnly, translateTips, cladeFileName, inputFileName, outputFileName, outputFileName2);
+        new TreeSummary(burninTrees, burninStates, posteriorLimit, cladeFreqMin, cladeFreqMax, includeTips, includeRoot, createSummaryTree, createCladeMap, createCladeAttribute, targetAttributeName, cladeOnly, translateTips, cladeFileName, inputFileName, outputFileName, outputFileName2);
 
         System.exit(0);
     }
