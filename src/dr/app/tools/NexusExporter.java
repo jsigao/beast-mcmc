@@ -213,10 +213,7 @@ public class NexusExporter implements TreeExporter {
         out.println("\tDimensions ntax=" + taxonCount + ";");
         out.println("\tTaxlabels");
         for (String name : names) {
-            if (name.matches(SPECIAL_CHARACTERS_REGEX)) {
-                name = "'" + name + "'";
-            }
-            out.println("\t\t" + name);
+            out.println("\t\t" + cleanTaxonName(name));
         }
         out.println("\t\t;");
         out.println("End;");
@@ -230,9 +227,7 @@ public class NexusExporter implements TreeExporter {
         int k = 1;
         for (String name : names) {
             idMap.put(name, k);
-            if (name.matches(SPECIAL_CHARACTERS_REGEX)) {
-                name = "'" + name + "'";
-            }
+            name = cleanTaxonName(name);
             if (k < names.size()) {
                 out.println("\t\t" + k + " " + name + ",");
             } else {
@@ -241,6 +236,19 @@ public class NexusExporter implements TreeExporter {
             k += 1;
         }
         return idMap;
+    }
+
+    private String cleanTaxonName(String taxaId) {
+        if (taxaId.matches(SPECIAL_CHARACTERS_REGEX)) {
+            if (taxaId.contains("\'")) {
+                if (taxaId.contains("\"")) {
+                    throw new RuntimeException("Illegal taxon name - contains both single and double quotes");
+                }
+                return "\"" + taxaId + "\"";
+            }
+            return "\'" + taxaId + "\'";
+        }
+        return taxaId;
     }
 
     private void writeNode(Tree tree, NodeRef node, boolean attributes, Map<String, Integer> idMap) {

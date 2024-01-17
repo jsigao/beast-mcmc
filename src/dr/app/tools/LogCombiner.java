@@ -461,10 +461,7 @@ public class LogCombiner {
         writer.println("\tTaxlabels");
         for (int i = 0; i < taxonCount; i++) {
             String id = tree.getTaxon(i).getId();
-            if (id.matches(NexusExporter.SPECIAL_CHARACTERS_REGEX)) {
-                id = "'" + id + "'";
-            }
-            writer.println("\t\t" + id);
+            writer.println("\t\t" + cleanTaxonName(id));
         }
         writer.println("\t\t;");
         writer.println("End;");
@@ -478,13 +475,23 @@ public class LogCombiner {
             Taxon taxon = tree.getTaxon(i);
             taxonMap.put(taxon.getId(), k);
             String id = taxon.getId();
-            if (id.matches(NexusExporter.SPECIAL_CHARACTERS_REGEX)) {
-                id = "'" + id + "'";
-            }
 
-            writer.println("\t\t" + k + " " + id + (k < taxonCount ? "," : ""));
+            writer.println("\t\t" + k + " " + cleanTaxonName(id) + (k < taxonCount ? "," : ""));
         }
         writer.println("\t\t;");
+    }
+
+    private String cleanTaxonName(String taxaId) {
+        if (taxaId.matches(NexusExporter.SPECIAL_CHARACTERS_REGEX)) {
+            if (taxaId.contains("\'")) {
+                if (taxaId.contains("\"")) {
+                    throw new RuntimeException("Illegal taxon name - contains both single and double quotes");
+                }
+                return "\"" + taxaId + "\"";
+            }
+            return "\'" + taxaId + "\'";
+        }
+        return taxaId;
     }
 
     private void writeTree(long state, Tree tree, boolean convertToDecimal, PrintWriter writer) {
