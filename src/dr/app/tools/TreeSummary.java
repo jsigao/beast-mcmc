@@ -82,6 +82,7 @@ public class TreeSummary {
                        boolean createSummaryTree,
                        boolean createCladeMap,
                        boolean createCladeAttribute,
+                       boolean createCladeCredibility,
                        String targetAttributeName,
                        boolean cladeOnly,
                        boolean translateTips,
@@ -178,7 +179,65 @@ public class TreeSummary {
         progressStream.println("Total unique clades: " + cladeSystem.getCladeMap().keySet().size());
         progressStream.println();
 
-        if (createCladeAttribute || createCladeMap) {
+        if (createCladeCredibility) {
+
+            progressStream.println("Reading trees...");
+            progressStream.println("0              25             50             75            100");
+            progressStream.println("|--------------|--------------|--------------|--------------|");
+
+            stepSize = totalTrees / 60;
+            if (stepSize < 1) stepSize = 1;
+
+            fileReader = new FileReader(inputFileName);
+            importer = new NexusImporter(fileReader);
+            final PrintStream stream = outputFileName != null ?
+                    new PrintStream(new FileOutputStream(outputFileName)) :
+                    System.out;
+            
+            stream.print("State");
+            stream.print("\t");
+            stream.print("cladeCredibility");
+            stream.println();
+    
+            try {
+                totalTrees = 0;
+                while (importer.hasTree()) {
+                    Tree tree = importer.importNextTree();
+                    
+                    long state = totalTrees;
+                    String name = tree.getId().trim();
+                    if (name != null && name.length() > 0 && name.startsWith("STATE_")) {
+                        state = Long.parseLong(name.split("_")[1]);
+                    }
+
+                    if (totalTrees >= burninTrees && state >= burninStates) {
+                        // if either of the two burnin thresholds have been reached...
+                        double score = cladeSystem.getLogCladeCredibility(tree, tree.getRoot(), null);
+                        StringBuilder sb = new StringBuilder(Long.toString(state));
+                        sb.append("\t");
+                        sb.append(Double.toString(score));
+                        stream.print(sb.toString());
+                        stream.println();
+                    }
+
+                    if (totalTrees > 0 && totalTrees % stepSize == 0) {
+                        progressStream.print("*");
+                        progressStream.flush();
+                    }
+                    totalTrees++;
+                }
+
+            } catch (Importer.ImportException e) {
+                System.err.println("Error Parsing Input Tree: " + e.getMessage());
+                return;
+            }
+
+            fileReader.close();
+            stream.close();
+            progressStream.println();
+            progressStream.println();
+
+        } else if (createCladeAttribute || createCladeMap) {
 
             Map<BitSet, Integer> cladeCountMap = new LinkedHashMap<BitSet, Integer>();
             if (cladeFileName != null) {
@@ -311,24 +370,13 @@ public class TreeSummary {
                         Tree tree = importer.importNextTree();
 
                         long state = totalTrees;
-
-                        if (burninStates >= 0) {
-                            // if burnin has been specified in states, try to parse it out...
-                            String name = tree.getId().trim();
-
-                            if (name != null && name.length() > 0 && name.startsWith("STATE_")) {
-                                state = Long.parseLong(name.split("_")[1]);
-                            }
+                        String name = tree.getId().trim();
+                        if (name != null && name.length() > 0 && name.startsWith("STATE_")) {
+                            state = Long.parseLong(name.split("_")[1]);
                         }
 
                         if (totalTrees >= burninTrees && state >= burninStates) {
                             // if either of the two burnin thresholds have been reached...
-
-                            if (burnin < 0) {
-                                // if this is the first time this point has been reached,
-                                // record the number of trees this represents for future use...
-                                burnin = totalTrees;
-                            }
 
                             StringBuilder sb = new StringBuilder(Long.toString(state));
 
@@ -1057,6 +1105,7 @@ public class TreeSummary {
                         new Arguments.IntegerOption("burninTrees", "the number of trees to be considered as 'burn-in'"),
                         new Arguments.Option("clademap", "show states of all clades over chain length"),
                         new Arguments.Option("cladeAttribute", "show states of the target attribute of all clades over chain length"),
+                        new Arguments.Option("cladeCredibility", "show the log clade credibility score of each tree over chain length"),
                         new Arguments.RealOption("limit", "the minimum posterior probability for a subtree to be included"),
                         new Arguments.RealOption("cladeFreqMin", "the minimum posterior probability for a clade to be included"),
                         new Arguments.RealOption("cladeFreqMax", "clades with posterior probability smaller than this value will be included"),
@@ -1119,6 +1168,7 @@ public class TreeSummary {
         boolean createCladeMap = false;
         boolean createSummaryTree = true;
         boolean createCladeAttribute = false;
+        boolean createCladeCredibility = false;
 
         if (arguments.hasOption("clademap")) {
             createCladeMap = true;
@@ -1129,6 +1179,13 @@ public class TreeSummary {
             createCladeMap = false;
             createSummaryTree = false;
             createCladeAttribute = true;
+        }
+
+        if (arguments.hasOption("cladeCredibility")) {
+            createCladeCredibility = true;
+            createCladeMap = false;
+            createSummaryTree = false;
+            createCladeAttribute = false;
         }
 
         String targetAttributeName = "height";
@@ -1169,7 +1226,7 @@ public class TreeSummary {
             outputFileName2 = args2[2];
         }
 
-        new TreeSummary(burninTrees, burninStates, posteriorLimit, cladeFreqMin, cladeFreqMax, includeTips, includeRoot, createSummaryTree, createCladeMap, createCladeAttribute, targetAttributeName, cladeOnly, translateTips, cladeFileName, inputFileName, outputFileName, outputFileName2);
+        new TreeSummary(burninTrees, burninStates, posteriorLimit, cladeFreqMin, cladeFreqMax, includeTips, includeRoot, createSummaryTree, createCladeMap, createCladeAttribute, createCladeCredibility, targetAttributeName, cladeOnly, translateTips, cladeFileName, inputFileName, outputFileName, outputFileName2);
 
         System.exit(0);
     }
