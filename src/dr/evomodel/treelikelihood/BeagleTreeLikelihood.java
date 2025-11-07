@@ -1,7 +1,8 @@
 /*
  * BeagleTreeLikelihood.java
  *
- * Copyright (c) 2002-2015 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.treelikelihood;
@@ -37,7 +39,7 @@ import dr.evomodel.tree.TreeChangedEvent;
 import dr.evomodel.treedatalikelihood.BeagleDataLikelihoodDelegate;
 import dr.evomodel.treedatalikelihood.BufferIndexHelper;
 import dr.evomodelxml.treelikelihood.BeagleTreeLikelihoodParser;
-//import dr.evomodel.siteratemodel.GammaSiteRateModel;
+//import dr.evomodel.siteratemodel.GammaSiteRateModelParser;
 import dr.evomodel.siteratemodel.SiteRateModel;
 //import dr.evomodel.substmodel.FrequencyModel;
 //import dr.evomodel.substmodel.nucleotide.HKY;
@@ -70,6 +72,7 @@ import dr.util.CommonCitations;
 import java.util.*;
 import java.util.logging.Logger;
 
+import static dr.evomodel.treedatalikelihood.BeagleDataLikelihoodDelegate.instanceCount;
 import static dr.evomodel.treedatalikelihood.BeagleFunctionality.*;
 
 /**
@@ -78,12 +81,11 @@ import static dr.evomodel.treedatalikelihood.BeagleFunctionality.*;
  * @author Andrew Rambaut
  * @author Alexei Drummond
  * @author Marc Suchard
- * @version $Id$
  */
 
 @SuppressWarnings("serial")
 @Deprecated // Switching to TreeDataLikelihood
-public class BeagleTreeLikelihood extends AbstractSinglePartitionTreeLikelihood implements ThreadAwareLikelihood, Citable {
+public class BeagleTreeLikelihood extends AbstractSinglePartitionTreeLikelihood implements ThreadAwareLikelihood {
 
     // This property is a comma-delimited list of resource numbers (0 == CPU) to
     // allocate each BEAGLE instance to. If less than the number of instances then
@@ -102,7 +104,7 @@ public class BeagleTreeLikelihood extends AbstractSinglePartitionTreeLikelihood 
     // Which scheme to use if choice not specified (or 'default' is selected):
     private static final PartialsRescalingScheme DEFAULT_RESCALING_SCHEME = PartialsRescalingScheme.DYNAMIC;
 
-    private static int instanceCount = BeagleDataLikelihoodDelegate.instanceCount;
+//    private static int instanceCount = BeagleDataLikelihoodDelegate.instanceCount;
     private static List<Integer> resourceOrder = null;
     private static List<Integer> preferredOrder = null;
     private static List<Integer> requiredOrder = null;
@@ -434,8 +436,12 @@ public class BeagleTreeLikelihood extends AbstractSinglePartitionTreeLikelihood 
                 logger.info("  No external BEAGLE resources available, or resource list/requirements not met, using Java implementation");
             }
 
-            if (IS_THREAD_COUNT_COMPATIBLE() && threadCount > 1) {
-                beagle.setCPUThreadCount(threadCount);
+            if (IS_THREAD_COUNT_COMPATIBLE()) {
+                if (threadCount > 0) {
+                    beagle.setCPUThreadCount(threadCount);
+                } else { // if no thread_count is specified then this will be -1 so put no upper bound on threads
+                    beagle.setCPUThreadCount(Integer.MAX_VALUE);
+                }
             }
 
             logger.info("  " + (useAmbiguities ? "Using" : "Ignoring") + " ambiguities in tree likelihood.");
@@ -1464,7 +1470,7 @@ public class BeagleTreeLikelihood extends AbstractSinglePartitionTreeLikelihood 
 //            BranchRateModel branchRateModel = new StrictClockBranchRates(rate);
 //
 //            // create site model
-//            GammaSiteRateModel siteRateModel = new GammaSiteRateModel(
+//            GammaSiteRateModelParser siteRateModel = new GammaSiteRateModelParser(
 //                    "siteModel");
 //
 //            BranchModel homogeneousBranchModel = new HomogeneousBranchModel(hky1);
@@ -1527,20 +1533,6 @@ public class BeagleTreeLikelihood extends AbstractSinglePartitionTreeLikelihood 
         double[] siteLogLikelihoods = new double[patternCount];
         beagle.getSiteLogLikelihoods(siteLogLikelihoods);
         return siteLogLikelihoods;
-    }
-
-    @Override
-    public Citation.Category getCategory() {
-        return Citation.Category.FRAMEWORK;
-    }
-
-    @Override
-    public String getDescription() {
-        return "Using BEAGLE likelihood calculation library";
-    }
-
-    public List<Citation> getCitations() {
-        return Collections.singletonList(CommonCitations.AYRES_2019_BEAGLE);
     }
 
 }//END: class

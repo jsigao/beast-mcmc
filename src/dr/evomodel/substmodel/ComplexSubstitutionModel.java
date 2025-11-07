@@ -1,7 +1,8 @@
 /*
  * ComplexSubstitutionModel.java
  *
- * Copyright (c) 2002-2015 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,15 +22,14 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.substmodel;
 
 import cern.colt.matrix.DoubleMatrix2D;
 import cern.colt.matrix.impl.DenseDoubleMatrix2D;
-import cern.colt.matrix.linalg.Algebra;
 import cern.colt.matrix.linalg.LUDecomposition;
-
 import dr.evolution.datatype.DataType;
 import dr.inference.loggers.LogColumn;
 import dr.inference.loggers.NumberColumn;
@@ -37,7 +37,6 @@ import dr.inference.model.BayesianStochasticSearchVariableSelection;
 import dr.inference.model.Likelihood;
 import dr.inference.model.Model;
 import dr.inference.model.Parameter;
-import dr.inference.model.Variable;
 import dr.math.matrixAlgebra.Vector;
 import dr.util.Citable;
 import dr.util.Citation;
@@ -53,19 +52,11 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
     public ComplexSubstitutionModel(String name, DataType dataType, FrequencyModel freqModel, Parameter parameter) {
         super(name, dataType, freqModel, parameter, -1);
         probability = new double[stateCount * stateCount];
-        
-        if (freqModel == null) {
-            computeStationary = true;
-            stationaryDistribution = new double[stateCount];
-            storedStationaryDistribution = new double[stateCount];
-            stationaryDistributionKnown = false;
-            storedStationaryDistributionKnown = false;
-        }
     }
 
     @Override
     protected void setupDimensionNames(int relativeTo) {
-        List<String> rateNames = new ArrayList<String>();
+        List<String> rateNames = new ArrayList<>();
 
         String ratePrefix = ratesParameter.getParameterName();
 
@@ -89,10 +80,11 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
         return new ComplexColtEigenSystem(stateCount);
     }
 
-    private void computeStationaryDistribution(double[] statDistr) {
+    protected void computeStationaryDistribution(double[] statDistr) {
         // Uses an LU decomposition to solve Q^t \pi = 0 and \sum \pi_i = 1
 
-        double[][] mat = getRelativeRateMatrix();
+        double[][] mat = getRelativeRateMatrixWithoutPi();
+
         DoubleMatrix2D mat2 = new DenseDoubleMatrix2D(stateCount + 1, stateCount);
         for (int i = 0; i < stateCount; ++i) {
             for (int j = 0; j < stateCount; ++j) {
@@ -111,22 +103,6 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
         for (int i = 0; i < stateCount; ++i) {
             statDistr[i] = y.get(i, 0);
         }
-    }
-    
-    protected double[] getPi() {
-        if (computeStationary) {
-            return getFrequencies();
-        } else {
-            return freqModel.getFrequencies();
-        }
-    }
-    
-    public double[] getFrequencies() {
-        if (!stationaryDistributionKnown) {
-            computeStationaryDistribution(stationaryDistribution);
-            stationaryDistributionKnown = true;
-        }
-        return stationaryDistribution;
     }
 
     /**
@@ -216,16 +192,14 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
         for (int i = 0; i < rates.length; i++)
             rates[i] = ratesParameter.getParameterValue(i);
     }
-    
-    protected double[][] getRelativeRateMatrix() {
+
+    private double[][] getRelativeRateMatrixWithoutPi() {
         setupRelativeRates(relativeRates);
         double[][] mat = new double[stateCount][stateCount];
-        if (computeStationary) {
-            setupQMatrix(relativeRates, null, mat);
-        } else {
-            double[] pi = freqModel.getFrequencies();
-            setupQMatrix(relativeRates, pi, mat);
-        }
+        double[] pi = new double[stateCount];
+        Arrays.fill(pi, 1.0);
+
+        setupQMatrix(relativeRates, pi, mat);
         makeValid(mat, stateCount);
         return mat;
     }
@@ -236,9 +210,7 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
             for (j = i + 1; j < stateCount; j++) {
                 double thisRate = rates[k++];
                 if (thisRate < 0.0) thisRate = 0.0;
-//                matrix[i][j] = thisRate * pi[j];
-                matrix[i][j] = thisRate;
-                if (!computeStationary) matrix[i][j] *= pi[j];
+                matrix[i][j] = thisRate * pi[j];
             }
         }
         // Copy lower triangle in column-order form (transposed)
@@ -246,9 +218,7 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
             for (i = j + 1; i < stateCount; i++) {
                 double thisRate = rates[k++];
                 if (thisRate < 0.0) thisRate = 0.0;
-//                matrix[i][j] = thisRate * pi[j];
-                matrix[i][j] = thisRate;
-                if (!computeStationary) matrix[i][j] *= pi[j];
+                matrix[i][j] = thisRate * pi[j];
             }
         }
     }
@@ -275,31 +245,6 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
         if (BayesianStochasticSearchVariableSelection.Utils.connectedAndWellConditioned(probability, this))
             return 0;
         return Double.NEGATIVE_INFINITY;
-    }
-    
-    protected void handleVariableChangedEvent(Variable variable, int index, Parameter.ChangeType type) {
-        stationaryDistributionKnown = false;
-        super.handleVariableChangedEvent(variable, index, type);
-    }
-    
-    protected void storeState() {
-        if (computeStationary) {
-            System.arraycopy(stationaryDistribution, 0, storedStationaryDistribution, 0, stateCount);
-            storedStationaryDistributionKnown = stationaryDistributionKnown;
-        }
-
-        super.storeState();
-    }
-    
-    protected void restoreState() {
-        if (computeStationary) {
-            double[] tmp = stationaryDistribution;
-            stationaryDistribution = storedStationaryDistribution;
-            storedStationaryDistribution = tmp;
-            stationaryDistributionKnown = storedStationaryDistributionKnown;
-        }
-
-        super.restoreState();
     }
 
     /**
@@ -343,7 +288,7 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
 
     @Override
     public Set<Likelihood> getLikelihoodSet() {
-        return new HashSet<Likelihood>(Arrays.asList(this));
+        return new HashSet<>(Collections.singletonList(this));
     }
 
     @Override
@@ -356,7 +301,7 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
     }
 
     private boolean isUsed = false;
-    private double[] probability;
+    private final double[] probability;
 
     public Model getModel() {
         return this;
@@ -406,11 +351,9 @@ public class ComplexSubstitutionModel extends GeneralSubstitutionModel implement
         return Collections.singletonList(CommonCitations.EDWARDS_2011_ANCIENT);
     }
 
-    private boolean doNormalization = true;
-    private boolean computeStationary = false;
+    public Model getRateProvider() {
+        throw new RuntimeException("Method implement only in specific subclasses");
+    }
 
-    private double[] stationaryDistribution;
-    private double[] storedStationaryDistribution;
-    private boolean stationaryDistributionKnown;
-    private boolean storedStationaryDistributionKnown;
+    private boolean doNormalization = true;
 }

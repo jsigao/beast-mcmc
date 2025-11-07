@@ -1,7 +1,8 @@
 /*
  * CTMCScalePriorParser.java
  *
- * Copyright (c) 2002-2016 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,10 +22,12 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodelxml.tree;
 
+import dr.evolution.util.Taxa;
 import dr.evolution.util.TaxonList;
 import dr.evomodel.substmodel.SubstitutionModel;
 import dr.evomodel.tree.CTMCScalePrior;
@@ -50,16 +53,16 @@ public class CTMCScalePriorParser extends AbstractXMLObjectParser {
     public Object parseXMLObject(XMLObject xo) throws XMLParseException {
 
         TreeModel treeModel = (TreeModel) xo.getChild(TreeModel.class);
-        TaxonList taxa = (TaxonList) xo.getChild(TaxonList.class);
+        TaxonList taxa = (TaxonList) xo.getChild(Taxa.class);
 
         Parameter ctmcScale = (Parameter) xo.getElementFirstChild(SCALEPARAMETER);
         boolean reciprocal = xo.getAttribute(RECIPROCAL, false);
         boolean trial = xo.getAttribute(TRIAL, false);
         SubstitutionModel substitutionModel = (SubstitutionModel) xo.getChild(SubstitutionModel.class);
 
-        Logger.getLogger("dr.evolution").info("Creating CTMC Scale Reference Prior model.");
+        Logger.getLogger("dr.evolution").info("\nCreating CTMC Scale Reference Prior model");
         if (taxa != null) {
-            Logger.getLogger("dr.evolution").info("Acting on subtree of size " + taxa.getTaxonCount());
+            Logger.getLogger("dr.evolution").info("  Acting on subtree of size " + taxa.getTaxonCount());
         }
         return new CTMCScalePrior(MODEL_NAME, ctmcScale, treeModel, taxa, reciprocal, substitutionModel, trial);
     }
@@ -82,7 +85,7 @@ public class CTMCScalePriorParser extends AbstractXMLObjectParser {
 
     private final XMLSyntaxRule[] rules = {
             new ElementRule(TreeModel.class),
-            new ElementRule(TaxonList.class, true),
+            new ElementRule(Taxa.class, true),
             new ElementRule(SCALEPARAMETER, new XMLSyntaxRule[]{new ElementRule(Parameter.class)}),
             AttributeRule.newBooleanRule(RECIPROCAL, true),
             new ElementRule(SubstitutionModel.class, true),

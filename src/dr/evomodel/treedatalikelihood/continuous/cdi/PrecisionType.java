@@ -1,7 +1,8 @@
 /*
  * PrecisionType.java
  *
- * Copyright (c) 2002-2016 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.treedatalikelihood.continuous.cdi;
@@ -159,7 +161,7 @@ public enum PrecisionType {
 
     FULL("full precision matrix per branch", "full", 2) {
         // partial structure:
-        //      [mean (p), precision (p^2), variance (p^2), fullPrecision (1), effective dimension (1), determinant (1)]
+        //      [mean (p), precision (p^2), variance (p^2), fullPrecision (1), effective dimension (1), determinant (1), remainder (1)]
 
         @Override
         public void fillPrecisionInPartials(double[] partial, int offset, int index, double precision,
@@ -188,16 +190,17 @@ public enum PrecisionType {
         }
 
         @Override
+        public void fillRemainderInPartials(double[] partials, int offset, double remainder, int dimTrait) {
+            int remOffset = getRemainderOffset(dimTrait);
+            partials[offset + remOffset] = remainder;
+        }
+
+        @Override
         public void copyObservation(double[] partial, int pOffset, double[] data, int dOffset, int dimTrait) {
             for (int i = 0; i < dimTrait; ++i) {
                 data[dOffset + i] = Double.isInfinite(partial[pOffset + dimTrait + i * dimTrait + i]) ?
                         partial[pOffset + i] : Double.NaN;
             }
-        }
-
-        @Override
-        public int getMatrixLength(int dimTrait) {
-            return 2 * super.getMatrixLength(dimTrait) + 3;
         }
 
         @Override
@@ -226,6 +229,11 @@ public enum PrecisionType {
         }
 
         @Override
+        public int getRemainderOffset(int dimTrait) {
+            return dimTrait + dimTrait * dimTrait * 2 + 3;
+        }
+
+        @Override
         public int getVarianceOffset(int dimTrait) {
             return dimTrait + dimTrait * dimTrait;
         }
@@ -250,6 +258,16 @@ public enum PrecisionType {
         public boolean hasDeterminant() {
             return true;
         }
+
+        @Override
+        public boolean hasRemainder() {
+            return true;
+        }
+
+        @Override
+        public int getPartialsDimension(int dimTrait) {
+            return dimTrait + 2 * getMatrixLength(dimTrait) + 4;
+        }
     };
 
     private final int power;
@@ -270,7 +288,7 @@ public enum PrecisionType {
         return power;
     }
 
-    public int getMatrixLength(int dimTrait) {
+    protected int getMatrixLength(int dimTrait) {
         int length = 1;
         final int pow = getPower();
         for (int i = 0; i < pow; ++i) {
@@ -331,6 +349,14 @@ public enum PrecisionType {
         return -1;
     }
 
+    public int getRemainderOffset(int dimTrait) {
+        return -1;
+    }
+
+    public void fillRemainderInPartials(double[] partials, int offset, double remainder, int dimTrait) {
+        throw new RuntimeException("precision type " + tag + " does not store remainders");
+    }
+
     abstract public double[] getScaledPrecision(double[] partial, int offset, double[] diffusionPrecision, int dimTrait);
 
     public int getPartialsDimension(int dimTrait) {
@@ -342,6 +368,10 @@ public enum PrecisionType {
     }
 
     public boolean hasDeterminant() {
+        return false;
+    }
+
+    public boolean hasRemainder() {
         return false;
     }
 

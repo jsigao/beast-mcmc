@@ -1,3 +1,30 @@
+/*
+ * ExtendedLatentLiabilityGibbsOperator.java
+ *
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
+ *
+ * This file is part of BEAST.
+ * See the NOTICE file distributed with this work for additional
+ * information regarding copyright ownership and licensing.
+ *
+ * BEAST is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ *  BEAST is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with BEAST; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA  02110-1301  USA
+ *
+ */
+
 package dr.evomodel.operators;
 
 import dr.evolution.tree.Tree;
@@ -5,8 +32,10 @@ import dr.evolution.tree.TreeTrait;
 import dr.evomodel.continuous.OrderedLatentLiabilityLikelihood;
 import dr.evomodel.treedatalikelihood.TreeDataLikelihood;
 import dr.evomodel.treedatalikelihood.continuous.ContinuousDataLikelihoodDelegate;
+import dr.evomodel.treedatalikelihood.continuous.ContinuousTraitPartialsProvider;
 import dr.evomodel.treedatalikelihood.preorder.ContinuousExtensionDelegate;
 import dr.evomodel.treedatalikelihood.preorder.ModelExtensionProvider;
+import dr.evomodelxml.treelikelihood.TreeTraitParserUtilities;
 import dr.inference.model.CompoundParameter;
 import dr.inference.model.Parameter;
 import dr.inference.operators.GibbsOperator;
@@ -18,7 +47,7 @@ import org.ejml.data.DenseMatrix64F;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-import static dr.evomodelxml.treelikelihood.TreeTraitParserUtilities.getTreeTraitFromDataLikelihood;
+import static dr.evomodelxml.treelikelihood.TreeTraitParserUtilities.*;
 
 public class ExtendedLatentLiabilityGibbsOperator extends SimpleMCMCOperator implements GibbsOperator, Reportable {
 
@@ -37,7 +66,7 @@ public class ExtendedLatentLiabilityGibbsOperator extends SimpleMCMCOperator imp
         this.latentLiabilityLikelihood = latentLiabilityLikelihood;
         this.dataModel = dataModel;
 
-        if (!dataModel.diagonalVariance()) {
+        if (!dataModel.diagonalVariance() && dataModel.getDataDimension() > 1) {
             throw new RuntimeException(EXTENDED_LATENT_GIBBS +
                     " is only valid for extended models with diagonal variance.");
         }
@@ -102,11 +131,16 @@ public class ExtendedLatentLiabilityGibbsOperator extends SimpleMCMCOperator imp
             ContinuousDataLikelihoodDelegate delegate =
                     (ContinuousDataLikelihoodDelegate) treeDataLikelihood.getDataLikelihoodDelegate();
 
+
+            String traitName = xo.getAttribute(TRAIT_NAME, getTipTraitNameFromDataLikelihood(treeDataLikelihood));
+
+            TreeTrait treeTrait = treeDataLikelihood.getTreeTrait(traitName);
+
+
+            ContinuousTraitPartialsProvider superDataModel = delegate.getDataModel();
             ModelExtensionProvider.NormalExtensionProvider dataModel =
-                    (ModelExtensionProvider.NormalExtensionProvider) delegate.getDataModel();
+                    (ModelExtensionProvider.NormalExtensionProvider) superDataModel.getProviderForTrait(traitName);
 
-
-            TreeTrait treeTrait = getTreeTraitFromDataLikelihood(treeDataLikelihood);
             Tree tree = treeDataLikelihood.getTree();
 
             ContinuousExtensionDelegate extensionDelegate = dataModel.getExtensionDelegate(delegate, treeTrait, tree);
@@ -121,7 +155,8 @@ public class ExtendedLatentLiabilityGibbsOperator extends SimpleMCMCOperator imp
         public XMLSyntaxRule[] getSyntaxRules() {
             return new XMLSyntaxRule[]{
                     new ElementRule(TreeDataLikelihood.class),
-                    new ElementRule(OrderedLatentLiabilityLikelihood.class)
+                    new ElementRule(OrderedLatentLiabilityLikelihood.class),
+                    AttributeRule.newStringRule(TreeTraitParserUtilities.TRAIT_NAME, true)
             };
         }
 

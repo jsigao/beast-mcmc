@@ -1,7 +1,35 @@
+/*
+ * FactorAnalysisOperatorAdaptor.java
+ *
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
+ *
+ * This file is part of BEAST.
+ * See the NOTICE file distributed with this work for additional
+ * information regarding copyright ownership and licensing.
+ *
+ * BEAST is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ *  BEAST is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with BEAST; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA  02110-1301  USA
+ *
+ */
+
 package dr.inference.operators.factorAnalysis;
 
-import dr.evolution.tree.TreeTrait;
 import dr.evomodel.treedatalikelihood.TreeDataLikelihood;
+import dr.evomodel.treedatalikelihood.continuous.ConditionalTraitSimulationHelper;
+import dr.evomodel.treedatalikelihood.continuous.ContinuousDataLikelihoodDelegate;
 import dr.evomodel.treedatalikelihood.continuous.IntegratedFactorAnalysisLikelihood;
 import dr.inference.model.*;
 import dr.math.matrixAlgebra.Matrix;
@@ -10,14 +38,11 @@ import dr.xml.*;
 
 import java.util.ArrayList;
 
-import static dr.evomodel.treedatalikelihood.preorder.AbstractRealizedContinuousTraitDelegate.REALIZED_TIP_TRAIT;
-import static dr.evomodelxml.treedatalikelihood.ContinuousDataLikelihoodParser.FACTOR_NAME;
-
 /**
  * @author Marc A. Suchard
  * @author Gabriel Hassler
  */
-public interface FactorAnalysisOperatorAdaptor {
+public interface FactorAnalysisOperatorAdaptor extends Reportable {
 
     int getNumberOfTaxa();
 
@@ -94,7 +119,7 @@ public interface FactorAnalysisOperatorAdaptor {
 
         @Override
         public String getReport() {
-            int repeats = 1000000;
+            int repeats = 20000;
             int nFac = getNumberOfFactors();
             int nTaxa = getNumberOfTaxa();
             int dim = nFac * nTaxa;
@@ -110,12 +135,12 @@ public interface FactorAnalysisOperatorAdaptor {
                 for (int j = 0; j < nTaxa; j++) {
                     for (int k = 0; k < nFac; k++) {
                         double x = getFactorValue(k, j);
-                        sums[k * nTaxa + j] += x;
+                        sums[k + j * nFac] += x;
 
                         for (int l = 0; l < nTaxa; l++) {
                             for (int m = 0; m < nFac; m++) {
                                 double y = getFactorValue(m, l);
-                                sumSquares[k * nTaxa + j][m * nTaxa + l] += x * y;
+                                sumSquares[k + j * nFac][m + l * nFac] += x * y;
                             }
                         }
                     }
@@ -237,11 +262,11 @@ public interface FactorAnalysisOperatorAdaptor {
 
         private final IntegratedFactorAnalysisLikelihood factorLikelihood;
         private final TreeDataLikelihood treeLikelihood;
+        private final ConditionalTraitSimulationHelper factorSimulationHelper;
 
         private final Parameter precision;
         private final CompoundParameter data;
 
-        private final TreeTrait factorTrait;
         private double[] factors;
 
         public IntegratedFactors(IntegratedFactorAnalysisLikelihood factorLikelihood,
@@ -252,10 +277,16 @@ public interface FactorAnalysisOperatorAdaptor {
 
             this.precision = factorLikelihood.getPrecision();
             this.data = factorLikelihood.getParameter();
+            this.factorSimulationHelper =
+                    ((ContinuousDataLikelihoodDelegate) treeLikelihood.getDataLikelihoodDelegate()).getExtensionHelper();
 
-            factorTrait = treeLikelihood.getTreeTrait(factorLikelihood.getTipTraitName());
+            //TODO: (below)
+//            if (factorSimulationHelper.getTreeTrait().getTraitName() != factorLikelihood.getTipTraitName()) {
+//                throw new RuntimeException("Tip trait names must match: '" +
+//                        factorSimulationHelper.getTreeTrait().getTraitName() + "' != '" +
+//                        factorLikelihood.getTipTraitName());
+//            }
 
-            assert (factorTrait != null);
         }
 
         @Override
@@ -290,7 +321,7 @@ public interface FactorAnalysisOperatorAdaptor {
 
         @Override
         public void drawFactors() {
-            factors = (double[]) factorTrait.getTrait(treeLikelihood.getTree(), null);
+            factors = factorSimulationHelper.drawTraitsAbove(factorLikelihood);
 
             if (DEBUG) {
                 System.err.println("factors: " + new Vector(factors));
@@ -323,6 +354,20 @@ public interface FactorAnalysisOperatorAdaptor {
             likelihoods.add(factorLikelihood);
             likelihoods.add(treeLikelihood);
             return likelihoods;
+        }
+
+        @Override
+        public String getReport() {
+
+            StringBuilder sb = new StringBuilder(factorSimulationHelper.getReport());
+            sb.append("\n\n");
+            sb.append(super.getReport());
+            sb.append("Taxon order:");
+            for (int i = 0; i < getNumberOfTaxa(); i++) {
+                sb.append(" " + treeLikelihood.getTree().getTaxonId(i));
+            }
+
+            return sb.toString();
         }
 
         private static final boolean DEBUG = false;

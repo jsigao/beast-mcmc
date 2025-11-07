@@ -1,7 +1,8 @@
 /*
  * CoalescentLikelihoodParser.java
  *
- * Copyright (c) 2002-2015 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodelxml.coalescent;
@@ -36,6 +38,8 @@ import dr.xml.*;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import static dr.evomodelxml.coalescent.TreeIntervalsParser.USE_FAST_INTERVALS;
 
 /**
  */
@@ -120,7 +124,9 @@ public class CoalescentLikelihoodParser extends AbstractXMLObjectParser {
 
 
             try {
-                intervalList = new TreeIntervals(treeModel, includeSubtree, excludeSubtrees);
+                if (intervalList == null) {
+                    intervalList = new TreeIntervals(treeModel, includeSubtree, excludeSubtrees, false);
+                }
                 // TreeIntervals now deals with all the interval stuff
 //                return new CoalescentLikelihood(treeModel, includeSubtree, excludeSubtrees, demoModel);
             } catch (TreeUtils.MissingTaxonException mte) {

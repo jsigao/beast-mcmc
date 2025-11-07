@@ -1,7 +1,8 @@
 /*
  * AncestralTraitParser.java
  *
- * Copyright (c) 2002-2015 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodelxml.tree;
@@ -42,6 +44,7 @@ public class AncestralTraitParser extends AbstractXMLObjectParser {
     public static final String MRCA = "mrca";
     public static final String TRAIT_NAME = "traitName";
     public static final String STATES = "states";
+    public static final String STEM = "stem";
 
     public String getParserName() {
         return ANCESTRAL_TRAIT;
@@ -66,12 +69,14 @@ public class AncestralTraitParser extends AbstractXMLObjectParser {
             taxa = (TaxonList) xo.getElementFirstChild(MRCA);
         }
 
+        boolean stem = xo.getAttribute(STEM, false);
+
         TreeTrait trait = treeTraitProvider.getTreeTrait(traitName);
         if (trait == null) {
             throw new XMLParseException("A trait called, " + traitName + ", was not available from the TreeTraitProvider supplied to " + getParserName() + (xo.hasId() ? ", with ID " + xo.getId() : ""));
         }
         try {
-            return new AncestralTrait(name, trait, tree, taxa);
+            return new AncestralTrait(name, trait, tree, taxa, stem);
         } catch (TreeUtils.MissingTaxonException mte) {
             throw new XMLParseException("Taxon, " + mte + ", in " + getParserName() + "was not found in the tree.");
         }
@@ -98,6 +103,7 @@ public class AncestralTraitParser extends AbstractXMLObjectParser {
             new StringAttributeRule(TRAIT_NAME, "The name of the trait to log", true),
             new ElementRule(Tree.class),
             new ElementRule(TreeTraitProvider.class),
-            new ElementRule(MRCA, new XMLSyntaxRule[]{new ElementRule(Taxa.class)},  "The MRCA to reconstruct the trait at (default root node)", true)
+            new ElementRule(MRCA, new XMLSyntaxRule[]{new ElementRule(Taxa.class)},  "The MRCA to reconstruct the trait at (default root node)", true),
+            AttributeRule.newBooleanRule(STEM, true, "If true, the trait is reconstructed at the parent node of the given MRCA (default false)")
     };
 }

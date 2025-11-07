@@ -1,7 +1,8 @@
 /*
  * BranchRateGradientWrtIncrementsParser.java
  *
- * Copyright (c) 2002-2019 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodelxml.branchratemodel;
@@ -30,6 +32,7 @@ import dr.evomodel.branchratemodel.BranchRateGradientWrtIncrements;
 import dr.evomodel.treedatalikelihood.continuous.BranchRateGradient;
 import dr.evomodel.treedatalikelihood.continuous.BranchSpecificOptimaGradient;
 import dr.evomodel.treedatalikelihood.discrete.BranchRateGradientForDiscreteTrait;
+import dr.evomodel.treedatalikelihood.discrete.BranchSubstitutionParameterGradient;
 import dr.inference.hmc.CompoundGradient;
 import dr.inference.hmc.GradientWrtParameterProvider;
 import dr.inference.hmc.JointBranchRateGradient;
@@ -40,7 +43,7 @@ import java.util.List;
 
 public class BranchRateGradientWrtIncrementsParser extends AbstractXMLObjectParser {
 
-    private static final String GRADIENT = "branchRateGradientWrtIncrements";
+    public static final String GRADIENT = "branchRateGradientWrtIncrements";
 
     public String getParserName() {
         return GRADIENT;
@@ -78,7 +81,8 @@ public class BranchRateGradientWrtIncrementsParser extends AbstractXMLObjectPars
 
         if (!(rateProvider instanceof JointBranchRateGradient) && !(rateProvider instanceof BranchSpecificOptimaGradient)) {
             if (!(rateProvider instanceof BranchRateGradient) &&
-                    !(rateProvider instanceof BranchRateGradientForDiscreteTrait)) {
+                    !(rateProvider instanceof BranchRateGradientForDiscreteTrait) &&
+                        !(rateProvider instanceof BranchSubstitutionParameterGradient)) {
                 throw new XMLParseException("Must provide a branch rate gradient");
             }
         }
@@ -109,9 +113,11 @@ public class BranchRateGradientWrtIncrementsParser extends AbstractXMLObjectPars
             ),
             new XORRule(
                     new XORRule(
-                            new ElementRule(BranchRateGradient.class),
-                            new ElementRule(BranchSpecificOptimaGradient.class)
-                    ),
+                            new ElementRule(BranchSubstitutionParameterGradient.class),
+                            new XORRule(
+                                    new ElementRule(BranchRateGradient.class),
+                                    new ElementRule(BranchSpecificOptimaGradient.class)
+                            )),
                     new XORRule(
                             new ElementRule(BranchRateGradientForDiscreteTrait.class),
                             new ElementRule(JointBranchRateGradient.class)

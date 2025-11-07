@@ -1,7 +1,8 @@
 /*
  * MultivariateDistributionLikelihood.java
  *
- * Copyright (c) 2002-2016 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.inference.distribution;
@@ -76,6 +78,7 @@ public class MultivariateDistributionLikelihood extends AbstractDistributionLike
     public static final String SPHERICAL_BETA_PRIOR = "sphericalBetaPrior";
     public static final String SPHERICAL_BETA_SHAPE = "shapeParameter";
     public static final String MV_LOG_NORMAL_PRIOR = "MVlogNormalPrior";
+    public static final String DETERMINANT_PRIOR = "determinantPrior";
 
     public static final String DATA = "data";
 
@@ -161,7 +164,7 @@ public class MultivariateDistributionLikelihood extends AbstractDistributionLike
             if (transforms != null) {
                 double[] y = new double[x.length];
                 for (int i = 0; i < x.length; ++i) {
-                    logL += transforms[i].getLogJacobian(x[i]);
+                    logL += transforms[i].logJacobian(x[i]);
                     y[i] = transforms[i].transform(x[i]);
                 }
                 logL += distribution.logPdf(y);
@@ -755,6 +758,45 @@ public class MultivariateDistributionLikelihood extends AbstractDistributionLike
 
         public Class getReturnType() {
             return MultivariateDistributionLikelihood.class;
+        }
+    };
+
+    public static XMLObjectParser DETERMINANT_PRIOR_PARSER = new AbstractXMLObjectParser() {
+        @Override
+        public Object parseXMLObject(XMLObject xo) throws XMLParseException {
+            double shape = xo.getDoubleAttribute(LKJ_SHAPE);
+            MatrixParameterInterface parameter = (MatrixParameterInterface) xo.getChild(MatrixParameterInterface.class);
+            int dim = parameter.getRowDimension();
+            if (parameter.getColumnDimension() != dim) {
+                throw new XMLParseException("matrix must be square");
+            }
+            MultivariateDistributionLikelihood likelihood = new MultivariateDistributionLikelihood(new ConstrainedDeterminantDistributionModel(shape, dim));
+            likelihood.addData(parameter);
+            return likelihood;
+        }
+
+        @Override
+        public XMLSyntaxRule[] getSyntaxRules() {
+            return new XMLSyntaxRule[]{
+                    AttributeRule.newDoubleRule(LKJ_SHAPE, true),
+                    new ElementRule(MatrixParameterInterface.class)
+
+            };
+        }
+
+        @Override
+        public String getParserDescription() {
+            return "Calculates p(X) = c * det(X)^a (currently omits normalization constant c)";
+        }
+
+        @Override
+        public Class getReturnType() {
+            return Likelihood.class;
+        }
+
+        @Override
+        public String getParserName() {
+            return DETERMINANT_PRIOR;
         }
     };
 

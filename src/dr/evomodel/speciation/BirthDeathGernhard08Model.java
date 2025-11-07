@@ -1,7 +1,8 @@
 /*
  * BirthDeathGernhard08Model.java
  *
- * Copyright (c) 2002-2015 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.speciation;
@@ -55,7 +57,8 @@ import static org.apache.commons.math.special.Gamma.logGamma;
  * @author Joseph Heled
  *         Date: 24/02/2008
  */
-public class BirthDeathGernhard08Model extends UltrametricSpeciationModel implements Citable {
+public class BirthDeathGernhard08Model extends UltrametricSpeciationModel
+        implements SpeciationModelGradientProvider, Citable {
 
     public enum TreeType {
         UNSCALED,     // no coefficient 
@@ -130,8 +133,12 @@ public class BirthDeathGernhard08Model extends UltrametricSpeciationModel implem
         this.type = type;
     }
 
-    @Override
-    public double getNodeGradient(Tree tree, NodeRef node) {
+    public SpeciationModelGradientProvider getProvider() { // This is less INTRUSIVE to the exisiting file
+        return this;
+    }
+
+    @Override // TODO Move into separate Gradient class
+    public double getNodeHeightGradient(Tree tree, NodeRef node) {
         final double height = tree.getNodeHeight(node);
         final double r = getR();
         final double mrh = -r * height;
@@ -140,7 +147,7 @@ public class BirthDeathGernhard08Model extends UltrametricSpeciationModel implem
         if( ! conditionalOnRoot ) {
             final double rho = getRho();
             final double tmp = ((1 - rho) - a) * Math.exp(mrh);
-            final double zDeriv = tmp + rho == 1.0 ? 0.0 : -r * tmp / Math.log(rho + tmp);
+            final double zDeriv = -r * tmp / (rho + tmp);
             double result = -2 * zDeriv - r;
 
             if( tree.getRoot() == node ) {

@@ -1,7 +1,8 @@
 /*
- * NewHamiltonianMonteCarloOperator.java
+ * AbstractParticleOperator.java
  *
- * Copyright (c) 2002-2017 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.inference.operators.hmc;
@@ -92,9 +94,10 @@ public abstract class AbstractParticleOperator extends SimpleMCMCOperator implem
         if (nativeOptions.testNativeFindNextBounce || nativeOptions.useNativeFindNextBounce || nativeOptions.useNativeUpdateDynamics) {
 
             NativeZigZagOptions options = new NativeZigZagOptions(flags, nativeSeed, nThreads);
-
+            double[] lb = getLowerBoundVector();
+            double[] ub = getUpperBoundVector();
             nativeZigZag = new NativeZigZagWrapper(parameter.getDimension(), options,
-                    maskVector, getObservedDataMask(), parameterSign);
+                    maskVector, getObservedDataMask(), parameterSign, lb, ub);
         }
     }
 
@@ -125,6 +128,24 @@ public abstract class AbstractParticleOperator extends SimpleMCMCOperator implem
         return observed;
     }
 
+    private double[] getLowerBoundVector() {
+        int dim = parameter.getDimension();
+        double[] lb = new double[dim];
+        for (int i = 0; i < dim; i++) {
+            lb[i] = parameter.getBounds().getLowerLimit(i);
+        }
+        return lb;
+    }
+
+    private double[] getUpperBoundVector() {
+        int dim = parameter.getDimension();
+        double[] ub = new double[dim];
+        for (int i = 0; i < dim; i++) {
+            ub[i] = parameter.getBounds().getUpperLimit(i);
+        }
+        return ub;
+    }
+
     private int[] getCategoryClasses(Parameter categoryVector) {
         int dim = parameter.getDimension();
         int[] categoryClasses = new int[dim];
@@ -151,7 +172,7 @@ public abstract class AbstractParticleOperator extends SimpleMCMCOperator implem
 
         WrappedVector momentum = drawInitialMomentum();
 
-        if (preconditionScheduler.shouldUpdatePreconditioning()){
+        if (preconditionScheduler.shouldUpdatePreconditioning()) {
             updatePreconditioning(position);
         }
 
@@ -508,9 +529,9 @@ public abstract class AbstractParticleOperator extends SimpleMCMCOperator implem
             } else if (i == 1) {
                 return BINARY_BOUNDARY;
             } else if (i == 2) {
+                return BINARY_BOUNDARY;
+            } else if (i == 3) {
                 return GRADIENT;
-            } else if (i > 2) {
-                return CATE_BOUNDARY;
             } else {
                 throw new RuntimeException("Unknown type");
             }
@@ -546,6 +567,6 @@ public abstract class AbstractParticleOperator extends SimpleMCMCOperator implem
     final static boolean TIMING = true;
     BenchmarkTimer timer = new BenchmarkTimer();
 
-//  final static boolean TEST_CRITICAL_REGION = false;
+    //  final static boolean TEST_CRITICAL_REGION = false;
     NativeZigZagWrapper nativeZigZag;
 }

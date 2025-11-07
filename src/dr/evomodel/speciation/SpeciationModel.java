@@ -1,7 +1,8 @@
 /*
  * SpeciationModel.java
  *
- * Copyright (c) 2002-2015 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,11 +22,11 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.speciation;
 
-import dr.evolution.tree.NodeRef;
 import dr.evolution.tree.Tree;
 import dr.evolution.util.Taxon;
 import dr.evolution.util.Units;
@@ -55,15 +56,17 @@ public abstract class SpeciationModel extends AbstractModel implements Units {
 
     public abstract double calculateTreeLogLikelihood(Tree tree, Set<Taxon> exclude);
 
-    public abstract double getNodeGradient(Tree tree, NodeRef node);
+    public SpeciationModelGradientProvider getProvider() {
+        throw new RuntimeException("Not yet implemented");
+    }
 
     // True if Yule.
     //
-    // Not abstract - non supporting derived classes do not need to override anything
+    // Not abstract - non-supporting derived classes do not need to override anything
     public boolean isYule() {
         return false;
     }
-
+    
     // Likelihood for the speciation model conditional on monophyly and calibration densities in
     // 'calibration'.
     //
@@ -104,5 +107,42 @@ public abstract class SpeciationModel extends AbstractModel implements Units {
      */
     public Units.Type getUnits() {
         return units;
+    }
+
+    // TODO Probably should be somewhere else
+    public double processInterval(int model, double tYoung, double tOld, int nLineages) {
+        throw new RuntimeException("Not implemented");
+    }
+
+    public void updateLikelihoodModelValues(int model) {
+        throw new RuntimeException("Not implemented");
+    }
+
+    public double processSampling(int model, double tOld) {
+        throw new RuntimeException("Not implemented");
+    }
+
+    public double processCoalescence(int model, double tOld) {
+        throw new RuntimeException("Not implemented");
+    }
+
+    public double[] getBreakPoints() {
+        throw new RuntimeException("Not implemented");
+    }
+
+    public double processModelSegmentBreakPoint(int model, double intervalStart, double segmentIntervalEnd, int nLineages) {
+        throw new RuntimeException("Not implemented");
+    }
+
+    public double processOrigin(int model, double rootAge) {
+        throw new RuntimeException("Not implemented");
+    }
+
+    public void updateModelValues() {
+        throw new RuntimeException("Not implemented");
+    }
+
+    public double logConditioningProbability(int model) {
+        throw new RuntimeException("Not implemented");
     }
 }

@@ -1,7 +1,8 @@
 /*
  * RepeatedMeasureFactorTest.java
  *
- * Copyright (c) 2002-2019 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package test.dr.evomodel.treedatalikelihood.continuous;
@@ -31,6 +33,7 @@ import dr.evomodel.continuous.MultivariateDiffusionModel;
 import dr.evomodel.continuous.MultivariateElasticModel;
 import dr.evomodel.treedatalikelihood.TreeDataLikelihood;
 import dr.evomodel.treedatalikelihood.continuous.*;
+import dr.evomodel.treedatalikelihood.continuous.cdi.PrecisionType;
 import dr.inference.model.*;
 import dr.math.MathUtils;
 import dr.math.matrixAlgebra.Vector;
@@ -132,6 +135,14 @@ public class RepeatedMeasureFactorTest extends ContinuousTraitTest {
         loadingsParameters[5] = new Parameter.Default(new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 1.0});
         MatrixParameterInterface loadingsMatrixParameters = new MatrixParameter("loadings", loadingsParameters);
 
+        dataModel = new ContinuousTraitDataModel("dataModel",
+                traitParameter,
+                missingIndicators,
+                true,
+                6,
+                PrecisionType.FULL
+        );
+
         dataModelFactor = new IntegratedFactorAnalysisLikelihood("dataModelFactors",
                 traitParameter,
                 missingIndicators,
@@ -142,19 +153,25 @@ public class RepeatedMeasureFactorTest extends ContinuousTraitTest {
 
         //// Repeated Measures Model //// ******************************************************************************
         dataModelRepeatedMeasures = new RepeatedMeasuresTraitDataModel("dataModelRepeatedMeasures",
+                dataModel,
                 traitParameter,
                 missingIndicators,
 //                new boolean[3],
                 true,
                 dimTrait,
-                samplingPrecisionParameter);
+                1,
+                samplingPrecisionParameter,
+                PrecisionType.FULL);
 
         dataModelRepeatedMeasuresFull = new RepeatedMeasuresTraitDataModel("dataModelRepeatedMeasures",
+                dataModel,
                 traitParameter,
                 missingIndicators,
                 true,
                 dimTrait,
-                samplingPrecisionParameterFull);
+                1,
+                samplingPrecisionParameterFull,
+                PrecisionType.FULL);
 
     }
 

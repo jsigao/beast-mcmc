@@ -1,7 +1,8 @@
 /*
  * AncestralSequenceAnnotator.java
  *
- * Copyright (c) 2002-2015 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.app.tools;
@@ -28,7 +30,7 @@ package dr.app.tools;
 
 import dr.evomodel.branchmodel.HomogeneousBranchModel;
 import dr.evomodel.tree.DefaultTreeModel;
-import dr.evomodelxml.siteratemodel.GammaSiteModelParser;
+import dr.evomodelxml.siteratemodel.SiteModelParser;
 import dr.evomodel.substmodel.FrequencyModel;
 import dr.evomodel.substmodel.GeneralSubstitutionModel;
 import dr.evomodel.substmodel.aminoacid.EmpiricalAminoAcidModel;
@@ -174,7 +176,7 @@ public class AncestralSequenceAnnotator {
             System.out.println("\tIgnoring first " + burnin + " trees.");
         }
 
-        simulationResults.exportTrees(simulatedTree.toArray(new Tree[simulatedTree.size()]));
+        simulationResults.exportTrees(simulatedTree);
 
         MutableTree targetTree;
 
@@ -807,8 +809,8 @@ public class AncestralSequenceAnnotator {
             }
 
             //System.out.println("alpha and pinv parameters: " + alphaParameter.getParameterValue(0) + "\t" + pInvParameter.getParameterValue(0));
-            //GammaSiteRateModel siteModel = new GammaSiteRateModel(sml.getSubstitutionModel(), new Parameter.Default(1.0), alphaParameter, categories, pInvParameter);
-            GammaSiteRateModel siteModel = new GammaSiteRateModel(GammaSiteModelParser.SITE_MODEL, new Parameter.Default(1.0), alphaParameter, categories, pInvParameter);
+            //GammaSiteRateModelParser siteModel = new GammaSiteRateModelParser(sml.getSubstitutionModel(), new Parameter.Default(1.0), alphaParameter, categories, pInvParameter);
+            GammaSiteRateModel siteModel = new GammaSiteRateModel(SiteModelParser.SITE_MODEL, new Parameter.Default(1.0), 1.0, alphaParameter, categories, pInvParameter);
             siteModel.setSubstitutionModel(sml.getSubstitutionModel());
             //SiteModel siteModel = new GammaSiteModel(sml.getSubstitutionModel(), new Parameter.Default(1.0), new Parameter.Default(1.0), 1, new Parameter.Default(0.5));
             //SiteModel siteModel = new GammaSiteModel(sml.getSubstitutionModel(), null, null, 0, null);
@@ -816,8 +818,8 @@ public class AncestralSequenceAnnotator {
         }
 
         /* Default with no gamma or pinv */
-        //SiteRateModel siteModel = new GammaSiteRateModel(sml.getSubstitutionModel());
-        GammaSiteRateModel siteModel = new GammaSiteRateModel(GammaSiteModelParser.SITE_MODEL);
+        //SiteRateModel siteModel = new GammaSiteRateModelParser(sml.getSubstitutionModel());
+        GammaSiteRateModel siteModel = new GammaSiteRateModel(SiteModelParser.SITE_MODEL);
         siteModel.setSubstitutionModel(sml.getSubstitutionModel());
         return siteModel;
 
@@ -1484,7 +1486,7 @@ public class AncestralSequenceAnnotator {
                         for (int j = 0; j < numElements; j++)
                             index[j] = alignment.getTaxonIndex("" + j);
 
-                        StringBuffer sb = new StringBuffer();
+                        StringBuilder sb = new StringBuilder();
                         support = new double[alignment.getPatternCount()];
 
 //						System.err.println(new dr.math.matrixAlgebra.Vector(weight));
@@ -1549,8 +1551,8 @@ public class AncestralSequenceAnnotator {
                 // Trim out gaps from consensus and support
 //				ArrayList<Double> newSupport = new ArrayList<Double>(support.length);
                 boolean noComma = true;
-                StringBuffer newSupport = new StringBuffer("{");
-                StringBuffer newSeq = new StringBuffer();
+                StringBuilder newSupport = new StringBuilder("{");
+                StringBuilder newSeq = new StringBuilder();
                 if (consensusSeq.length() != support.length) {
                     System.err.println("What happened here?");
                     System.exit(-1);

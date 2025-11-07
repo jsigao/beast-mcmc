@@ -1,7 +1,8 @@
 /*
- * RandomLocalClockModel.java
+ * ScaledByTreeTimeBranchRateModel.java
  *
- * Copyright (c) 2002-2015 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.branchratemodel;
@@ -34,13 +36,12 @@ import dr.inference.model.Parameter;
 import dr.inference.model.Variable;
 import dr.util.Citable;
 import dr.util.Citation;
+import org.ejml.data.DenseMatrix64F;
+import org.ejml.ops.CommonOps;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.DoubleBinaryOperator;
-
-import org.ejml.data.DenseMatrix64F;
-import org.ejml.ops.CommonOps;
 
 /**
  * @author Marc A. Suchard
@@ -310,6 +311,10 @@ public class ScaledByTreeTimeBranchRateModel extends AbstractBranchRateModel imp
         double total = -branchRateModel.getBranchRate(treeModel, nodeI) * treeModel.getBranchLength(nodeJ) * scaleFactor;
         total /= branchTotal;
         return total;
+    }
+
+    public Tree getTree() {
+        return treeModel;
     }
 
     @Override

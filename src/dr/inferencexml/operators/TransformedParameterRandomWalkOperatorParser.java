@@ -1,7 +1,8 @@
 /*
  * TransformedParameterRandomWalkOperatorParser.java
  *
- * Copyright (c) 2002-2018 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,10 +22,12 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.inferencexml.operators;
 
+import dr.inference.model.BoundedSpace;
 import dr.inference.model.TransformedParameter;
 import dr.inference.operators.AdaptableMCMCOperator;
 import dr.inference.operators.MCMCOperator;
@@ -45,9 +48,10 @@ public class TransformedParameterRandomWalkOperatorParser extends RandomWalkOper
         try {
             randomWalk = super.parseXMLObject(xo);
         } catch (XMLParseException e) {
-            throw new XMLParseException("RandomWalkOperatorParser failled in TraansformedParameterRandomWalkOperator.");
+            throw new XMLParseException("RandomWalkOperatorParser failed in TransformedParameterRandomWalkOperator.");
         }
-        return new TransformedParameterRandomWalkOperator((RandomWalkOperator) randomWalk);
+        BoundedSpace bounds = (BoundedSpace) xo.getChild(BoundedSpace.class);
+        return new TransformedParameterRandomWalkOperator((RandomWalkOperator) randomWalk, bounds);
 
     }
 
@@ -76,6 +80,7 @@ public class TransformedParameterRandomWalkOperatorParser extends RandomWalkOper
                             new ElementRule(TransformedParameter.class),
                     }, true),
             new StringAttributeRule(BOUNDARY_CONDITION, null, RandomWalkOperator.BoundaryCondition.values(), true),
-            new ElementRule(TransformedParameter.class)
+            new ElementRule(TransformedParameter.class),
+            new ElementRule(BoundedSpace.class, true)
     };
 }

@@ -1,7 +1,8 @@
 /*
  * GradientWrtParameterProvider.java
  *
- * Copyright (c) 2002-2017 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.inference.hmc;
@@ -48,6 +50,41 @@ public interface GradientWrtParameterProvider {
     int getDimension();
 
     double[] getGradientLogDensity();
+
+    class Negative implements GradientWrtParameterProvider {
+
+        private final GradientWrtParameterProvider provider;
+
+        public Negative(GradientWrtParameterProvider provider) {
+            this.provider = provider;
+        }
+
+        @Override
+        public Likelihood getLikelihood() {
+            return provider.getLikelihood();
+        }
+
+        @Override
+        public Parameter getParameter() {
+            return provider.getParameter();
+        }
+
+        @Override
+        public int getDimension() {
+            return provider.getDimension();
+        }
+
+        @Override
+        public double[] getGradientLogDensity() {
+
+            double[] gradient = provider.getGradientLogDensity();
+            for (int i = 0; i < gradient.length; ++i) {
+                gradient[i] =-gradient[i];
+            }
+
+            return gradient;
+        }
+    }
 
     class ParameterWrapper implements GradientWrtParameterProvider, HessianWrtParameterProvider, Reportable {
 
@@ -131,7 +168,7 @@ public interface GradientWrtParameterProvider {
         }
 
 
-        private MultivariateFunction numeric = new MultivariateFunction() {
+        private final MultivariateFunction numeric = new MultivariateFunction() {
 
             @Override
             public double evaluate(double[] argument) {

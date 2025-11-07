@@ -1,7 +1,8 @@
 /*
  * CTMCScalePrior.java
  *
- * Copyright (c) 2002-2019 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.tree;
@@ -30,6 +32,7 @@ import dr.evolution.util.Taxon;
 import dr.evolution.util.TaxonList;
 import dr.evomodel.substmodel.SubstitutionModel;
 import dr.inference.hmc.GradientWrtParameterProvider;
+import dr.inference.hmc.HessianWrtParameterProvider;
 import dr.inference.model.*;
 import dr.math.GammaFunction;
 import dr.util.Author;
@@ -48,7 +51,8 @@ import java.util.Set;
  *         Date: Aug 22, 2008
  *         Time: 3:26:57 PM
  */
-public class CTMCScalePrior extends AbstractModelLikelihood implements GradientWrtParameterProvider, Citable {
+public class CTMCScalePrior extends AbstractModelLikelihood
+        implements GradientWrtParameterProvider, HessianWrtParameterProvider, Citable {
     final private Parameter ctmcScale;
     final private TreeModel treeModel;
     private Set<Taxon> taxa = null;
@@ -76,7 +80,7 @@ public class CTMCScalePrior extends AbstractModelLikelihood implements GradientW
 
         addVariable(ctmcScale);
 
-        if (taxonList != null) {
+        if (taxonList != null && taxonList.getTaxonCount() < treeModel.getTaxonCount()) {
             this.taxa = new HashSet<>();
             for (Taxon taxon : taxonList) {
                 this.taxa.add(taxon);
@@ -191,7 +195,8 @@ public class CTMCScalePrior extends AbstractModelLikelihood implements GradientW
     private double getTreeLength() {
         if (!treeLengthKnown) {
             if (taxa == null) {
-                treeLength = TreeUtils.getTreeLength(treeModel, treeModel.getRoot());
+                treeLength = TreeUtils.getTreeLength(treeModel);
+//                assert Math.abs(treeLength - TreeUtils.getTreeLength(treeModel, treeModel.getRoot())) < 1E-6;
             } else {
                 treeLength = TreeUtils.getSubTreeLength(treeModel, taxa);
             }
@@ -261,5 +266,25 @@ public class CTMCScalePrior extends AbstractModelLikelihood implements GradientW
             gradLogLike[i] = -shape / ab - totalTreeTime;
         }
         return gradLogLike;
+    }
+
+    @Override
+    public double[] getDiagonalHessianLogDensity() {
+
+        double[] diagonalHessian = new double[ctmcScale.getDimension()];
+
+        final double totalTreeTime = scaledTotalTreeTime();
+
+        for (int i = 0; i < ctmcScale.getDimension(); ++i) {
+            final double ab = ctmcScale.getParameterValue(i);
+            diagonalHessian[i] = shape / (ab * ab);
+        }
+
+        return diagonalHessian;
+    }
+
+    @Override
+    public double[][] getHessianLogDensity() {
+        throw new RuntimeException("Not yet implemented.");
     }
 }

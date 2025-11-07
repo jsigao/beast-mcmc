@@ -1,7 +1,8 @@
 /*
  * TreeModelParser.java
  *
- * Copyright (c) 2002-2015 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodelxml.tree;
@@ -263,10 +265,28 @@ public class TreeModelParser extends AbstractXMLObjectParser {
                 throw new XMLParseException("illegal child element in  " + getParserName() + ": " + xo.getChildName(i) + " " + xo.getChild(i));
             }
         }
-        
+
+        double minTaxonHeight = Double.MAX_VALUE;
+        double maxTaxonHeight = -Double.MAX_VALUE;
+        for (int i = 0; i < treeModel.getTaxonCount(); i++) {
+            Taxon taxon = treeModel.getTaxon(i);
+            double h = 0;
+            if (taxon.getDate() != null) {
+                h = Taxon.getHeightFromDate(taxon.getDate());
+            }
+            if (h < minTaxonHeight) {
+                minTaxonHeight = h;
+            }
+            if (h > maxTaxonHeight) {
+                maxTaxonHeight = h;
+            }
+        }
+
 //        Logger.getLogger("dr.evomodel").info("  initial tree topology = " + TreeUtils.uniqueNewick(treeModel, treeModel.getRoot()));
-        Logger.getLogger("dr.evomodel").info("  taxon count = " + treeModel.getExternalNodeCount());
-        Logger.getLogger("dr.evomodel").info("  tree height = " + treeModel.getNodeHeight(treeModel.getRoot()));
+        Logger.getLogger("dr.evomodel").info("             taxon count = " + treeModel.getExternalNodeCount());
+        Logger.getLogger("dr.evomodel").info("             tree height = " + treeModel.getNodeHeight(treeModel.getRoot()));
+        Logger.getLogger("dr.evomodel").info("          min tip height = " + minTaxonHeight);
+        Logger.getLogger("dr.evomodel").info("          max tip height = " + maxTaxonHeight);
         return treeModel;
     }
 

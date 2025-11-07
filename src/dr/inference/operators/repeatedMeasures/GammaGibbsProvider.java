@@ -1,8 +1,36 @@
+/*
+ * GammaGibbsProvider.java
+ *
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
+ *
+ * This file is part of BEAST.
+ * See the NOTICE file distributed with this work for additional
+ * information regarding copyright ownership and licensing.
+ *
+ * BEAST is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ *  BEAST is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with BEAST; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA  02110-1301  USA
+ *
+ */
+
 package dr.inference.operators.repeatedMeasures;
 
 import dr.evolution.tree.TreeTrait;
-import dr.evomodel.continuous.MatrixShrinkageLikelihood;
 import dr.evomodel.treedatalikelihood.TreeDataLikelihood;
+import dr.evomodel.treedatalikelihood.continuous.ConditionalTraitSimulationHelper;
+import dr.evomodel.treedatalikelihood.continuous.ContinuousDataLikelihoodDelegate;
 import dr.evomodel.treedatalikelihood.preorder.ModelExtensionProvider;
 import dr.inference.distribution.DistributionLikelihood;
 import dr.inference.distribution.LogNormalDistributionModel;
@@ -17,7 +45,7 @@ import dr.util.Attribute;
 
 import java.util.List;
 
-import static dr.evomodel.treedatalikelihood.preorder.AbstractRealizedContinuousTraitDelegate.REALIZED_TIP_TRAIT;
+import static dr.evomodel.treedatalikelihood.preorder.AbstractRealizedContinuousTraitDelegate.getTipTraitName;
 
 /**
  * @author Marc A. Suchard
@@ -110,20 +138,32 @@ public interface GammaGibbsProvider {
 
         private final ModelExtensionProvider.NormalExtensionProvider dataModel;
         private final TreeDataLikelihood treeLikelihood;
+        private final ConditionalTraitSimulationHelper traitProvider;
+        private final TreeTrait tipTrait;
         private final CompoundParameter traitParameter;
         private final Parameter precisionParameter;
-        private final TreeTrait tipTrait;
         private final boolean[] missingVector;
 
         private double[] tipValues;
+        private boolean hasCheckedDimension = false;
 
         public NormalExtensionGibbsProvider(ModelExtensionProvider.NormalExtensionProvider dataModel,
-                                            TreeDataLikelihood treeLikelihood) {
+                                            TreeDataLikelihood treeLikelihood,
+                                            String traitName) {
             this.dataModel = dataModel;
             this.treeLikelihood = treeLikelihood;
             this.traitParameter = dataModel.getParameter();
-            this.tipTrait = treeLikelihood.getTreeTrait(dataModel.getTipTraitName());
             this.missingVector = dataModel.getDataMissingIndicators();
+
+            if (traitName == null) {
+                this.tipTrait = null;
+                this.traitProvider = ((ContinuousDataLikelihoodDelegate)
+                        treeLikelihood.getDataLikelihoodDelegate()).getExtensionHelper();
+            } else {
+                this.tipTrait = treeLikelihood.getTreeTrait(getTipTraitName(traitName));
+                this.traitProvider = null;
+            }
+
 
             MatrixParameterInterface matrixParameter = dataModel.getExtensionPrecision();
 
@@ -146,6 +186,14 @@ public interface GammaGibbsProvider {
 
             final int taxonCount = treeLikelihood.getTree().getExternalNodeCount();
             final int traitDim = dataModel.getDataDimension();
+
+            if (!hasCheckedDimension) { //TODO: actually check that this works
+                if (taxonCount * traitDim != tipValues.length) {
+                    throw new RuntimeException("dimensions are incompatible");
+                }
+                hasCheckedDimension = true;
+            }
+
             int missingCount = 0;
 
             double SSE = 0;
@@ -173,7 +221,8 @@ public interface GammaGibbsProvider {
 
         @Override
         public void drawValues() {
-            double[] tipTraits = (double[]) tipTrait.getTrait(treeLikelihood.getTree(), null);
+            double[] tipTraits = tipTrait == null ? traitProvider.drawTraitsAbove(dataModel) :
+                    (double[]) tipTrait.getTrait(treeLikelihood.getTree(), null);
             tipValues = dataModel.transformTreeTraits(tipTraits);
             if (DEBUG) {
                 System.err.println("tipValues: " + new WrappedVector.Raw(tipValues));

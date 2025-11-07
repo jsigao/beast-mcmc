@@ -1,7 +1,8 @@
 /*
  * SmoothSkygridTest.java
  *
- * Copyright (c) 2002-2021 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,15 +22,13 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package test.dr.evomodel.coalescent;
 
-import dr.evomodel.coalescent.smooth.SmoothSkygridLikelihood;
+import dr.evomodel.coalescent.smooth.OldSmoothSkygridLikelihood;
 import junit.framework.TestCase;
-import org.apache.commons.math.ConvergenceException;
-import org.apache.commons.math.FunctionEvaluationException;
-import org.apache.commons.math.analysis.UnivariateRealFunction;
 import org.apache.commons.math.analysis.integration.RombergIntegrator;
 import org.apache.commons.math.analysis.integration.UnivariateRealIntegrator;
 
@@ -64,7 +63,7 @@ public class SmoothSkygridTest extends TestCase {
 
         // Test gradients
         startTime = System.nanoTime();
-        xx = SmoothSkygridLikelihood.getGradientWrtLogPopSizesInIntervalViaCentralDifference(
+        xx = OldSmoothSkygridLikelihood.getGradientWrtLogPopSizesInIntervalViaCentralDifference(
                 1.1, 1.9,
                 1, 2,
                 Math.log(5), Math.log(10), 2.0);
@@ -72,7 +71,7 @@ public class SmoothSkygridTest extends TestCase {
         System.err.println("Total cDiff execution time: " + (endTime-startTime) + "ns");
         
         startTime = System.nanoTime();
-        yy = SmoothSkygridLikelihood.getGradientWrtLogPopSizesInInterval(
+        yy = OldSmoothSkygridLikelihood.getGradientWrtLogPopSizesInInterval(
                 1.1, 1.9,
                 1, 2,
                 Math.log(5), Math.log(10), 2.0);
@@ -136,14 +135,14 @@ public class SmoothSkygridTest extends TestCase {
 //
         // Approximated step function
         startTime = System.nanoTime();
-        x = SmoothSkygridLikelihood.getPopSizeInInterval(1.6,
+        x = OldSmoothSkygridLikelihood.getPopSizeInInterval(1.6,
                 1, 2,
                 Math.log(5), Math.log(10), 100.0);
         System.err.println(x);
         y = 10;
         assertEquals(x, y, tolerance);
 
-        x = SmoothSkygridLikelihood.getIntensityInInterval(1, 2,
+        x = OldSmoothSkygridLikelihood.getIntensityInInterval(1, 2,
                 1, 2,
                 Math.log(5), Math.log(10), 100.0);
         System.err.println(x);

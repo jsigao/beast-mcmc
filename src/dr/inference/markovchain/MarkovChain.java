@@ -1,7 +1,8 @@
 /*
  * MarkovChain.java
  *
- * Copyright (c) 2002-2017 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.inference.markovchain;
@@ -43,7 +45,6 @@ import java.util.logging.Logger;
  *
  * @author Alexei Drummond
  * @author Andrew Rambaut
- * @version $Id: MarkovChain.java,v 1.10 2006/06/21 13:34:42 rambaut Exp $
  */
 public final class MarkovChain implements Serializable {
     private static final long serialVersionUID = 181L;
@@ -195,7 +196,7 @@ public final class MarkovChain implements Serializable {
 
             double oldScore = currentScore;
             if (usingFullEvaluation) {
-                diagnosticDensities = new HashMap<String, Double>();
+                diagnosticDensities = new HashMap<>();
                 fillDensities(likelihood, diagnosticDensities);
             }
 
@@ -278,13 +279,13 @@ public final class MarkovChain implements Serializable {
                     mcmcOperator.addCalculationCount(newCalculationCount - calculationCount);
 
                     if (DEBUG) {
-                        System.out.println("Time: " + duration);
+                        System.out.println("Time: " + duration + "ns");
                     }
                 }
 
                 Map<String, Double> diagnosticOperatorDensities = null;
-                if (usingFullEvaluation) {
-                    diagnosticOperatorDensities = new HashMap<String, Double>();
+                if (usingFullEvaluation && !Double.isInfinite(score) && !Double.isNaN(score)) {
+                    diagnosticOperatorDensities = new HashMap<>();
                     fillDensities(likelihood, diagnosticOperatorDensities);
                 }
 
@@ -353,7 +354,9 @@ public final class MarkovChain implements Serializable {
                     final double testScore = evaluate(likelihood);
 
                     Map<String, Double> densitiesAfter = new HashMap<String, Double>();
-                    fillDensities(likelihood, densitiesAfter);
+                    if (!Double.isInfinite(testScore) && !Double.isNaN(testScore)) {
+                        fillDensities(likelihood, densitiesAfter);
+                    }
 
                     if (Math.abs(testScore - score) > evaluationTestThreshold) {
                         StringBuilder sb = new StringBuilder();

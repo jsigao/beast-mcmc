@@ -1,7 +1,7 @@
 /*
  * GMRFSkyrideLikelihoodParser.java
  *
- * Copyright (c) 2002-2015 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright (c) 2002-2014 Alexei Drummond, Andrew Rambaut and Marc Suchard
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -29,7 +29,7 @@ import dr.evolution.coalescent.IntervalList;
 import dr.evomodel.coalescent.*;
 import dr.evolution.tree.Tree;
 import dr.evomodel.tree.TreeModel;
-import dr.inference.glm.GeneralizedLinearModel;
+import dr.inference.glm.ExperimentalGeneralizedLinearModel;
 import dr.inference.model.MatrixParameter;
 import dr.inference.model.DesignMatrix;
 import dr.inference.model.Parameter;
@@ -80,6 +80,11 @@ public class GMRFSkyrideLikelihoodParser extends AbstractXMLObjectParser {
     public static final String DIST_INDICES = "covIndicesMissingDistant";
     public static final String GLM_MODEL = "glmModel";
     public static final String USE_GLM_MODEL = "useGlmModel";
+
+    //declaring String constants for use in BEAUti
+    public static final String SKYGRID_PRECISION = "skygrid.precision";
+    public static final String SKYGRID_LOGPOPSIZE = "skygrid.logPopSize";
+    public static final String SKYGRID_PRECISION_PRIOR = "skygrid.precision.prior";
 
     public String getParserName() {
         return SKYLINE_LIKELIHOOD;
@@ -353,7 +358,7 @@ public class GMRFSkyrideLikelihoodParser extends AbstractXMLObjectParser {
 
         if(useGlmModel) {
 
-            GeneralizedLinearModel glm = (GeneralizedLinearModel) xo.getChild(GeneralizedLinearModel.class);
+            ExperimentalGeneralizedLinearModel glm = (ExperimentalGeneralizedLinearModel) xo.getChild(ExperimentalGeneralizedLinearModel.class);
             covariates = new ArrayList<MatrixParameter>();
             betaList = new ArrayList<Parameter>();
             List<DesignMatrix> designMat = glm.getDesignMatrix();

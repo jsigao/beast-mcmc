@@ -1,10 +1,37 @@
+/*
+ * IntegratedLoadingsGradient.java
+ *
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
+ *
+ * This file is part of BEAST.
+ * See the NOTICE file distributed with this work for additional
+ * information regarding copyright ownership and licensing.
+ *
+ * BEAST is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ *  BEAST is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with BEAST; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA  02110-1301  USA
+ *
+ */
+
 package dr.evomodel.continuous.hmc;
 
 import dr.evolution.tree.Tree;
 import dr.evolution.tree.TreeTrait;
-import dr.evomodel.treedatalikelihood.DataLikelihoodDelegate;
 import dr.evomodel.treedatalikelihood.TreeDataLikelihood;
 import dr.evomodel.treedatalikelihood.continuous.ContinuousDataLikelihoodDelegate;
+import dr.evomodel.treedatalikelihood.continuous.ContinuousTraitPartialsProvider;
 import dr.evomodel.treedatalikelihood.continuous.IntegratedFactorAnalysisLikelihood;
 import dr.evomodel.treedatalikelihood.continuous.cdi.PrecisionType;
 import dr.evomodel.treedatalikelihood.preorder.WrappedNormalSufficientStatistics;
@@ -16,7 +43,6 @@ import dr.math.matrixAlgebra.*;
 import dr.math.matrixAlgebra.missingData.MissingOps;
 import dr.util.StopWatch;
 import dr.util.TaskPool;
-import dr.evomodelxml.continuous.hmc.TaskPoolParser;
 import dr.xml.*;
 import org.ejml.data.DenseMatrix64F;
 
@@ -24,8 +50,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static dr.evomodel.continuous.hmc.LinearOrderTreePrecisionTraitProductProvider.castTreeTrait;
-import static dr.math.matrixAlgebra.missingData.MissingOps.safeInvert2;
-import static dr.math.matrixAlgebra.missingData.MissingOps.weightedAverage;
+import static dr.math.matrixAlgebra.missingData.MissingOps.*;
 
 /**
  * @author Marc A. Suchard
@@ -34,12 +59,14 @@ import static dr.math.matrixAlgebra.missingData.MissingOps.weightedAverage;
 public class IntegratedLoadingsGradient implements GradientWrtParameterProvider, VariableListener, Reportable {
 
     private final TreeTrait<List<WrappedNormalSufficientStatistics>> fullConditionalDensity;
-    private final IntegratedFactorAnalysisLikelihood factorAnalysisLikelihood;
+    protected final IntegratedFactorAnalysisLikelihood factorAnalysisLikelihood;
+    private final ContinuousTraitPartialsProvider partialsProvider;
     protected final int dimTrait;
     protected final int dimFactors;
+    protected final int dimPartials;
     private final Tree tree;
     private final Likelihood likelihood;
-    private final double[] data;
+    protected final double[] data;
     private final boolean[] missing;
     private final ThreadUseProvider threadUseProvider;
     private final RemainderCompProvider remainderCompProvider;
@@ -48,12 +75,14 @@ public class IntegratedLoadingsGradient implements GradientWrtParameterProvider,
     public IntegratedLoadingsGradient(TreeDataLikelihood treeDataLikelihood,
                                       ContinuousDataLikelihoodDelegate likelihoodDelegate,
                                       IntegratedFactorAnalysisLikelihood factorAnalysisLikelihood,
+                                      ContinuousTraitPartialsProvider partialsProvider,
                                       TaskPool taskPool,
                                       ThreadUseProvider threadUseProvider,
                                       RemainderCompProvider remainderCompProvider) {
 
 
         this.factorAnalysisLikelihood = factorAnalysisLikelihood;
+        this.partialsProvider = partialsProvider;
 
         String traitName = factorAnalysisLikelihood.getModelName();
 
@@ -68,6 +97,7 @@ public class IntegratedLoadingsGradient implements GradientWrtParameterProvider,
 
         this.dimTrait = factorAnalysisLikelihood.getDataDimension();
         this.dimFactors = factorAnalysisLikelihood.getNumberOfFactors();
+        this.dimPartials = partialsProvider.getTraitDimension();
 
         Parameter dataParameter = factorAnalysisLikelihood.getParameter();
         this.data = dataParameter.getParameterValues();
@@ -128,7 +158,7 @@ public class IntegratedLoadingsGradient implements GradientWrtParameterProvider,
         return dimFactors * dimTrait;
     }
 
-    private int getGradientDimension() {
+    protected int getGradientDimension() {
         return dimFactors * dimTrait;
     }
 
@@ -148,8 +178,8 @@ public class IntegratedLoadingsGradient implements GradientWrtParameterProvider,
         return variance;
     }
 
-    private WrappedNormalSufficientStatistics getWeightedAverage(ReadableVector m1, ReadableMatrix p1,
-                                                                 ReadableVector m2, ReadableMatrix p2) {
+    private static WrappedNormalSufficientStatistics getWeightedAverage(ReadableVector m1, ReadableMatrix p1,
+                                                                        ReadableVector m2, ReadableMatrix p2) {
 
         assert (m1.getDim() == m2.getDim());
         assert (p1.getDim() == p2.getDim());
@@ -157,9 +187,11 @@ public class IntegratedLoadingsGradient implements GradientWrtParameterProvider,
         assert (m1.getDim() == p1.getMinorDim());
         assert (m1.getDim() == p1.getMajorDim());
 
-        final WrappedVector m12 = new WrappedVector.Raw(new double[m1.getDim()], 0, dimFactors);
-        final DenseMatrix64F p12 = new DenseMatrix64F(dimFactors, dimFactors);
-        final DenseMatrix64F v12 = new DenseMatrix64F(dimFactors, dimFactors);
+        int dim = m1.getDim();
+
+        final WrappedVector m12 = new WrappedVector.Raw(new double[m1.getDim()], 0, dim);
+        final DenseMatrix64F p12 = new DenseMatrix64F(dim, dim);
+        final DenseMatrix64F v12 = new DenseMatrix64F(dim, dim);
 
         final WrappedMatrix wP12 = new WrappedMatrix.WrappedDenseMatrix(p12);
         final WrappedMatrix wV12 = new WrappedMatrix.WrappedDenseMatrix(v12);
@@ -167,8 +199,7 @@ public class IntegratedLoadingsGradient implements GradientWrtParameterProvider,
         MissingOps.add(p1, p2, wP12);
         safeInvert2(p12, v12, false);
 
-        weightedAverage(m1, p1, m2, p2, m12, wV12, dimFactors);
-
+        safeWeightedAverage(m1, MissingOps.copy(p1), m2, MissingOps.copy(p2), m12, v12, dim);
         return new WrappedNormalSufficientStatistics(m12, wP12, wV12);
     }
 
@@ -247,19 +278,19 @@ public class IntegratedLoadingsGradient implements GradientWrtParameterProvider,
         return join(gradients);
     }
 
+    protected class MeanAndMoment {
+        public final ReadableVector mean;
+        public final double[] moment;
 
-    private void computeGradientForOneTaxon(final int index,
-                                            final int taxon,
-                                            final ReadableMatrix loadings,
-                                            final double[] transposedLoadings,
-                                            final ReadableVector gamma,
-                                            final double[] rawGamma,
-                                            final WrappedNormalSufficientStatistics statistic,
-                                            final double[][] gradArray) {
-
-        if (TIMING) {
-            stopWatches[0].start();
+        public MeanAndMoment(ReadableVector mean, double[] moment) {
+            this.mean = mean;
+            this.moment = moment;
         }
+    }
+
+    protected MeanAndMoment getMeanAndMoment(final int taxon,
+                                             final WrappedNormalSufficientStatistics statistic) {
+
 
 //        final WrappedVector y = getTipData(taxon);
         final WrappedNormalSufficientStatistics dataKernel = getTipKernel(taxon);
@@ -285,9 +316,11 @@ public class IntegratedLoadingsGradient implements GradientWrtParameterProvider,
             System.err.println("FV" + taxon + " : " + varianceFactor);
         }
 
-        final WrappedNormalSufficientStatistics convolution = getWeightedAverage(
+        WrappedNormalSufficientStatistics convolution = getWeightedAverage(
                 meanFactor, precisionFactor,
                 meanKernel, precisionKernel);
+
+        convolution = partialsProvider.partitionNormalStatistics(convolution, factorAnalysisLikelihood);
 
         final ReadableVector mean = convolution.getMean();
 //            final ReadableMatrix precision = convolution.getPrecision();
@@ -311,11 +344,28 @@ public class IntegratedLoadingsGradient implements GradientWrtParameterProvider,
 
         double[] moment = ReadableMatrix.Utils.toArray(secondMoment);
 
-        if (TIMING) {
-            stopWatches[0].stop();
-            stopWatches[1].start();
-        }
+        return new MeanAndMoment(mean, moment);
+    }
 
+    protected class GradientComponents {
+        public final double[] fty;
+        public final double[] ftfl;
+
+        public GradientComponents(double[] fty, double[] ftfl) {
+            this.fty = fty;
+            this.ftfl = ftfl;
+        }
+    }
+
+    protected GradientComponents computeGradientComponents(final int taxon,
+                                                           final double[] transposedLoadings,
+                                                           final MeanAndMoment meanAndMoment) {
+
+        final ReadableVector mean = meanAndMoment.mean;
+        final double[] moment = meanAndMoment.moment;
+
+        double fty[] = new double[dimFactors * dimTrait];
+        double ftfl[] = new double[dimFactors * dimTrait];
         for (int factor = 0; factor < dimFactors; ++factor) {
             double factorMean = mean.get(factor);
 
@@ -328,16 +378,58 @@ public class IntegratedLoadingsGradient implements GradientWrtParameterProvider,
                                 * transposedLoadings[trait * dimFactors + k]; // loadings.get(k, trait);
                     }
 
-                    gradArray[index][factor * dimTrait + trait] +=
-                            (factorMean // mean.get(factor)
-                                    * data[taxon * dimTrait + trait] //y.get(trait)
-                                    - product)
-//                                         - product.get(factor, trait))
-                                    * rawGamma[trait]; // gamma.get(trait);
+                    int ind = factor * dimTrait + trait;
+
+                    fty[ind] += factorMean * data[taxon * dimTrait + trait];
+                    ftfl[ind] += product;
 
                 }
             }
         }
+
+        return new GradientComponents(fty, ftfl);
+    }
+
+    protected void computeLoadingsGradientForOneTaxon(int index,
+                                                      GradientComponents components,
+                                                      double[] rawGamma,
+                                                      double[][] gradArray) {
+
+        double[] fty = components.fty;
+        double[] ftfl = components.ftfl;
+        for (int factor = 0; factor < dimFactors; ++factor) {
+            for (int trait = 0; trait < dimTrait; ++trait) {
+                int ind = factor * dimTrait + trait;
+                gradArray[index][ind] +=
+                        (fty[ind] - ftfl[ind]) * rawGamma[trait];
+            }
+        }
+
+    }
+
+
+    protected void computeGradientForOneTaxon(final int index,
+                                              final int taxon,
+                                              final ReadableMatrix loadings,
+                                              final double[] transposedLoadings,
+                                              final ReadableVector gamma,
+                                              final double[] rawGamma,
+                                              final WrappedNormalSufficientStatistics statistic,
+                                              final double[][] gradArray) {
+
+        if (TIMING) {
+            stopWatches[0].start();
+        }
+
+        final MeanAndMoment meanAndMoment = getMeanAndMoment(taxon, statistic);
+
+        if (TIMING) {
+            stopWatches[0].stop();
+            stopWatches[1].start();
+        }
+
+        GradientComponents components = computeGradientComponents(taxon, transposedLoadings, meanAndMoment);
+        computeLoadingsGradientForOneTaxon(index, components, rawGamma, gradArray);
 
         if (TIMING) {
             stopWatches[1].stop();
@@ -366,8 +458,8 @@ public class IntegratedLoadingsGradient implements GradientWrtParameterProvider,
 //    }
 
     private WrappedNormalSufficientStatistics getTipKernel(int taxonIndex) {
-        double[] buffer = factorAnalysisLikelihood.getTipPartial(taxonIndex, false);
-        return new WrappedNormalSufficientStatistics(buffer, 0, dimFactors, null, PrecisionType.FULL);
+        double[] buffer = partialsProvider.getTipPartial(taxonIndex, false);
+        return new WrappedNormalSufficientStatistics(buffer, 0, dimPartials, null, PrecisionType.FULL);
     }
 
     public enum ThreadUseProvider {
@@ -440,8 +532,8 @@ public class IntegratedLoadingsGradient implements GradientWrtParameterProvider,
 
     }
 
-    private StopWatch[] stopWatches;
-    private static final boolean TIMING = false;
+    protected StopWatch[] stopWatches;
+    protected static final boolean TIMING = false;
 
     private static final boolean DEBUG = false;
 

@@ -1,7 +1,8 @@
 /*
  * LKJCorrelationDistribution.java
  *
- * Copyright (c) 2002-2015 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.math.distributions;
@@ -51,12 +53,12 @@ public class LKJCorrelationDistribution extends AbstractLKJDistribution {
 
         assert (x.length == upperTriangularSize(dim));
 
-        if (shape == 1.0) { // Uniform
-            return logNormalizationConstant;
-        } else {
-            SymmetricMatrix R = compoundCorrelationSymmetricMatrix(x, dim);
-            return logPdf(R);
-        }
+//        if (shape == 1.0) { // Uniform //even when it's uniform, you still want to return -inf if it's not pos. def.
+//            return logNormalizationConstant;
+//        } else {
+        SymmetricMatrix R = compoundCorrelationSymmetricMatrix(x, dim);
+        return logPdf(R);
+//        }
     }
 
     private double logPdf(Matrix R) {

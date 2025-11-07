@@ -1,3 +1,30 @@
+/*
+ * BayesianBridgeShrinkageOperator.java
+ *
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
+ *
+ * This file is part of BEAST.
+ * See the NOTICE file distributed with this work for additional
+ * information regarding copyright ownership and licensing.
+ *
+ * BEAST is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ *  BEAST is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with BEAST; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA  02110-1301  USA
+ *
+ */
+
 package dr.inference.operators.shrinkage;
 
 import dr.inference.distribution.ExponentialTiltedStableDistribution;
@@ -74,14 +101,9 @@ public class BayesianBridgeShrinkageOperator extends SimpleMCMCOperator implemen
         return 0;
     }
 
-    private void sampleGlobalScale() {
-
-        double priorShape = globalScalePrior.getShape();
-        double priorScale = globalScalePrior.getScale();
-        double exponent = regressionExponent.getParameterValue(0);
-
+    public double drawGlobalScale(double priorShape, double priorScale, double exponent, double effectiveDim, double absSumCoefficients) {
         double shape = effectiveDim / exponent;
-        double rate = absSumBeta();
+        double rate = absSumCoefficients;
 
         if (priorShape > 0.0) {
             shape += priorShape;
@@ -90,6 +112,12 @@ public class BayesianBridgeShrinkageOperator extends SimpleMCMCOperator implemen
 
         double phi = GammaDistribution.nextGamma(shape, 1.0 / rate);
         double draw = Math.pow(phi, -1.0 / exponent);
+
+        return draw;
+    }
+
+    public void sampleGlobalScale() {
+        double draw = drawGlobalScale(globalScalePrior.getShape(), globalScalePrior.getScale(), regressionExponent.getParameterValue(0), effectiveDim, absSumBeta());
 
         globalScale.setParameterValue(0, draw);
 
@@ -123,6 +151,13 @@ public class BayesianBridgeShrinkageOperator extends SimpleMCMCOperator implemen
         return sum;
     }
 
+    public double drawSingleLocalScale(double global, double exponent, double coefficient) {
+        double draw = ExponentialTiltedStableDistribution.nextTiltedStable(
+                exponent / 2, Math.pow(coefficient / global, 2));
+        draw = Math.sqrt(1 / (2 * draw));
+        return draw;
+    }
+
     private void sampleLocalScale() {
 
         final double exponent = regressionExponent.getParameterValue(0);
@@ -131,11 +166,8 @@ public class BayesianBridgeShrinkageOperator extends SimpleMCMCOperator implemen
         for (int i = 0; i < dim; ++i) {
 
             if (random(i)) {
-                double draw = ExponentialTiltedStableDistribution.nextTiltedStable(
-                        exponent / 2, Math.pow(provider.getCoefficient(i) / global, 2)
-                );
-
-                localScale.setParameterValueQuietly(i, Math.sqrt(1 / (2 * draw)));
+                double draw = drawSingleLocalScale(global, exponent, provider.getCoefficient(i));
+                localScale.setParameterValueQuietly(i, draw);
             }
         }
 

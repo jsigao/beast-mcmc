@@ -1,7 +1,8 @@
 /*
  * ContinuousDataLikelihoodDelegate.java
  *
- * Copyright (c) 2002-2016 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.treedatalikelihood.continuous;
@@ -33,7 +35,6 @@ package dr.evomodel.treedatalikelihood.continuous;
  * @author Andrew Rambaut
  * @author Marc Suchard
  * @author Philippe Lemey
- * @version $Id$
  */
 
 import dr.evolution.tree.MutableTreeModel;
@@ -47,6 +48,7 @@ import dr.evomodel.continuous.MultivariateDiffusionModel;
 import dr.evomodel.treedatalikelihood.*;
 import dr.evomodel.treedatalikelihood.continuous.cdi.*;
 import dr.evomodel.treedatalikelihood.preorder.*;
+import dr.evomodel.treelikelihood.PartialsRescalingScheme;
 import dr.inference.model.*;
 import dr.math.KroneckerOperation;
 import dr.math.distributions.MultivariateNormalDistribution;
@@ -83,6 +85,7 @@ public class ContinuousDataLikelihoodDelegate extends AbstractModel implements D
     private boolean allowSingular = false;
 
     private TreeDataLikelihood callbackLikelihood = null;
+    private ConditionalTraitSimulationHelper extensionHelper = null;
 
     public ContinuousDataLikelihoodDelegate(Tree tree,
                                             DiffusionProcessDelegate diffusionProcessDelegate,
@@ -303,6 +306,10 @@ public class ContinuousDataLikelihoodDelegate extends AbstractModel implements D
 
     public TreeDataLikelihood getCallbackLikelihood() {
         return callbackLikelihood;
+    }
+
+    public ConditionalTraitSimulationHelper getExtensionHelper() {
+        return extensionHelper;
     }
 
     public PrecisionType getPrecisionType() {
@@ -602,7 +609,7 @@ public class ContinuousDataLikelihoodDelegate extends AbstractModel implements D
                 Matrix cVar = cVariance.getConditionalVariance();
 
                 sb.append("cMean #").append(tip).append(" ").append(new dr.math.matrixAlgebra.Vector(cMean))
-                        .append(" cVar [").append(cVar).append("]\n");
+                        .append("\ncVar [").append(cVar).append("]\n\n");
             }
         }
 
@@ -653,6 +660,10 @@ public class ContinuousDataLikelihoodDelegate extends AbstractModel implements D
     @Override
     public void setCallback(TreeDataLikelihood treeDataLikelihood) {
         this.callbackLikelihood = treeDataLikelihood;
+    }
+
+    public void setExtensionHelper() {
+        this.extensionHelper = new ConditionalTraitSimulationHelper(callbackLikelihood);
     }
 
     @Override
@@ -836,6 +847,14 @@ public class ContinuousDataLikelihoodDelegate extends AbstractModel implements D
         return logL;
     }
 
+    public int getPartitionCat(){
+        // not meaningful right now, need to update
+        return 0;
+    };
+
+    public double[] getSiteLogLikelihoods(){
+        throw new RuntimeException("getSiteLogLikelihoods() not implemented");
+    }
     public final int getActiveNodeIndex(final int index) {
         return partialBufferHelper.getOffsetIndex(index);
     }
@@ -924,6 +943,26 @@ public class ContinuousDataLikelihoodDelegate extends AbstractModel implements D
     protected void acceptState() {
     }
 
+    public PreOrderSettings getPreOrderSettings() {
+        return null;
+    }
+
+    @Override
+    public boolean getPreferGPU() {
+        return true;
+    }
+
+    public boolean getUseAmbiguities() {
+        return true;
+    }
+
+    public PartialsRescalingScheme getRescalingScheme() {
+        return null;
+    }
+
+    public boolean getDelayRescalingUntilUnderflow() {
+        return true;
+    }
     // **************************************************************
     // INSTANCE PROFILEABLE
     // **************************************************************
@@ -1001,13 +1040,15 @@ public class ContinuousDataLikelihoodDelegate extends AbstractModel implements D
         return getDiffusionModel().getPrecisionParameter();
     }
 
-    public void addFullConditionalGradientTrait(String traitName) {
+    public void addFullConditionalGradientTrait(String traitName, int offset, int dimTrait) {
 
         ProcessSimulationDelegate gradientDelegate = new TipGradientViaFullConditionalDelegate(traitName,
                 (MutableTreeModel) getCallbackLikelihood().getTree(),
                 getDiffusionModel(),
                 getDataModel(), getRootPrior(),
-                getRateTransformation(), this);
+                getRateTransformation(), this,
+                offset,
+                dimTrait);
 
         TreeTraitProvider traitProvider = new ProcessSimulation(getCallbackLikelihood(), gradientDelegate);
 
@@ -1115,5 +1156,17 @@ public class ContinuousDataLikelihoodDelegate extends AbstractModel implements D
                 likelihoodDelegate.rateModel,
                 false,
                 likelihoodDelegate.allowSingular);
+    }
+
+    public double[] getPostOrderRootMean() {
+        PrecisionType type = getDataModel().getPrecisionType();
+
+        double[] partial = new double[type.getPartialsDimension(dimProcess)];
+
+        getIntegrator().getPostOrderPartial(getActiveNodeIndex(tree.getRoot().getNumber()), partial);
+        double mean[] = new double[dimProcess];
+        System.arraycopy(partial, type.getMeanOffset(dimProcess), mean, 0, dimProcess);
+
+        return mean;
     }
 }

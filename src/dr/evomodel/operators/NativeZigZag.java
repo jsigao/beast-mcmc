@@ -1,3 +1,30 @@
+/*
+ * NativeZigZag.java
+ *
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
+ *
+ * This file is part of BEAST.
+ * See the NOTICE file distributed with this work for additional
+ * information regarding copyright ownership and licensing.
+ *
+ * BEAST is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ *  BEAST is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with BEAST; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA  02110-1301  USA
+ *
+ */
+
 package dr.evomodel.operators;
 
 import dr.inference.hmc.PrecisionColumnProvider;
@@ -55,7 +82,9 @@ public class NativeZigZag {
                        NativeZigZagOptions options,
                        double[] mask,
                        double[] observed,
-                       double[] parameterSign) {
+                       double[] parameterSign,
+                       double[] lb,
+                       double[] ub) {
 
 
         if ((mask != null && dimension != mask.length) ||
@@ -65,8 +94,7 @@ public class NativeZigZag {
         if (mask == null){
             mask = allOneMask(dimension);
         }
-
-        int result = create(dimension, options, mask, observed, parameterSign);
+        int result = create(dimension, options, mask, parameterSign, lb, ub);
         if (result < 0) {
             throw new RuntimeException("Unable to create instance");
         }
@@ -85,8 +113,9 @@ public class NativeZigZag {
     private native int create(int dimension,
                               NativeZigZagOptions options,
                               double[] mask,
-                              double[] observed,
-                              double[] parameterSign);
+                              double[] parameterSign,
+                              double[] lowerBounds,
+                              double[] upperBounds);
 
     native int operate(int instanceNumber,
                        PrecisionColumnProvider columnProvider,
@@ -137,11 +166,11 @@ public class NativeZigZag {
                                double[] column,
                                double eventTime, int eventIndex, int eventType);
 
-    native MinimumTravelInformation getNextEventIrreversible(int instanceNumber,
-                                                             double[] position,
-                                                             double[] velocity,
-                                                             double[] action,
-                                                             double[] gradient);
+//    native MinimumTravelInformation getNextEventIrreversible(int instanceNumber,
+//                                                             double[] position,
+//                                                             double[] velocity,
+//                                                             double[] action,
+//                                                             double[] gradient);
     static {
         System.loadLibrary("zig_zag");
         INSTANCE = new NativeZigZag();

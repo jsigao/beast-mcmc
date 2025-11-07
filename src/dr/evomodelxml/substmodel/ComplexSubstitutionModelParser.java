@@ -1,7 +1,7 @@
 /*
  * ComplexSubstitutionModelParser.java
  *
- * Copyright (c) 2002-2016 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright (c) 2002-2025 Alexei Drummond, Andrew Rambaut and Marc Suchard
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -71,6 +71,8 @@ public class ComplexSubstitutionModelParser extends AbstractXMLObjectParser {
 
         Parameter ratesParameter;
 
+        boolean computeStationaryDistribution = xo.getAttribute(COMPUTE_STATIONARY, false);
+
         XMLObject cxo;
         FrequencyModel freqModel = null;
         if (xo.hasChildNamed(FREQUENCIES)) {
@@ -79,12 +81,7 @@ public class ComplexSubstitutionModelParser extends AbstractXMLObjectParser {
         } else if (xo.hasChildNamed(ROOT_FREQUENCIES)) {
             cxo = xo.getChild(ROOT_FREQUENCIES);
             freqModel = (FrequencyModel) cxo.getChild(FrequencyModel.class);
-        } else if (!xo.getAttribute(COMPUTE_STATIONARY, false)) {
-            throw new XMLParseException("No frequency model found in " + getParserName());
         }
-//        FrequencyModel freqModel = (FrequencyModel) cxo.getChild(FrequencyModel.class);
-//        DataType dataType = freqModel.getDataType();
-        
         DataType dataType = DataTypeUtils.getDataType(xo);
 
         cxo = xo.getChild(RATES);
@@ -116,24 +113,49 @@ public class ComplexSubstitutionModelParser extends AbstractXMLObjectParser {
 
         Parameter indicatorParameter = null;
         if (!xo.hasChildNamed(INDICATOR)) {
-            model = new ComplexSubstitutionModel(COMPLEX_SUBSTITUTION_MODEL, dataType, freqModel, ratesParameter) {
-                protected EigenSystem getDefaultEigenSystem(int stateCount) {
-                    return new ComplexColtEigenSystem(stateCount, checkConditioning, maxConditionNumber, maxIterations);
+            if (!checkConditioning) {
+
+                if (computeStationaryDistribution) {
+                    model = new ComplexSubstitutionModelAtStationarity(COMPLEX_SUBSTITUTION_MODEL, dataType, ratesParameter) {
+                        protected EigenSystem getDefaultEigenSystem(int stateCount) {
+                            return new ComplexColtEigenSystem(stateCount, false,
+                                    ColtEigenSystem.defaultMaxConditionNumber, ColtEigenSystem.defaultMaxIterations);
+                        }
+                    };
+                } else {
+                    model = new ComplexSubstitutionModel(COMPLEX_SUBSTITUTION_MODEL, dataType, freqModel, ratesParameter) {
+                        protected EigenSystem getDefaultEigenSystem(int stateCount) {
+                            return new ComplexColtEigenSystem(stateCount, false,
+                                    ColtEigenSystem.defaultMaxConditionNumber, ColtEigenSystem.defaultMaxIterations);
+                        }
+                    };
                 }
-            };
+            } else {
+                if (computeStationaryDistribution) {
+                    model = new ComplexSubstitutionModelAtStationarity(COMPLEX_SUBSTITUTION_MODEL, dataType, ratesParameter);
+                } else {
+                    model = new ComplexSubstitutionModel(COMPLEX_SUBSTITUTION_MODEL, dataType, freqModel, ratesParameter);
+                }
+            }
         } else {
             
             cxo = xo.getChild(INDICATOR);
 
             indicatorParameter = (Parameter) cxo.getChild(Parameter.class);
-            if (indicatorParameter == null || ratesParameter == null || indicatorParameter.getDimension() != ratesParameter.getDimension())
+            if (indicatorParameter == null || ratesParameter == null || indicatorParameter.getDimension() != ratesParameter.getDimension()) {
                 throw new XMLParseException("Rates and indicator parameters in " + getParserName() + " element must be the same dimension.");
+            }
+            for (double value : indicatorParameter.getValues()) {
+                if (value != 0 && value != 1) {
+                    throw new XMLParseException("Indicator parameter " + indicatorParameter + " has an invalid value: " + value);
+                }
+            }
 
             if (xo.hasAttribute(BSSVS_TOLERANCE)) {
                 double tolerance = xo.getAttribute(BSSVS_TOLERANCE,
                         BayesianStochasticSearchVariableSelection.Utils.getTolerance());
                 if (tolerance > BayesianStochasticSearchVariableSelection.Utils.getTolerance()) {
-                    // Only increase smallest allowed tolerance
+                    // Only increase the smallest allowed tolerance
                     BayesianStochasticSearchVariableSelection.Utils.setTolerance(tolerance);
                     Logger.getLogger("dr.app.beagle.evomodel").info("\tIncreasing BSSVS tolerance to " + tolerance);
                 }

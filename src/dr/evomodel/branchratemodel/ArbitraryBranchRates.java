@@ -1,7 +1,8 @@
 /*
  * ArbitraryBranchRates.java
  *
- * Copyright (c) 2002-2015 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.branchratemodel;
@@ -38,6 +40,7 @@ import dr.util.Author;
 import dr.util.Citable;
 import dr.util.Citation;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.DoubleBinaryOperator;
@@ -400,6 +403,73 @@ public class ArbitraryBranchRates extends AbstractBranchRateModel implements Dif
             protected void acceptState() { }
         }
 
+        class LocationShrinkage extends AbstractModel implements BranchRateTransform {
+            private final BranchSpecificFixedEffects location;
+
+            public LocationShrinkage(String name, BranchSpecificFixedEffects location) {
+                super(name);
+                this.location = location;
+
+                if (location instanceof Model) {
+                    addModel((Model) location);
+                }
+            }
+
+            @Override
+            public double differential(double raw, Tree tree, NodeRef node) {
+                return transform(raw, tree, node);
+            }
+
+            @Override
+            public double secondDifferential(double raw, Tree tree, NodeRef node) {
+                return transform(raw, tree, node);
+            }
+
+            @Override
+            public double transform(double raw, Tree tree, NodeRef node) {
+                return location.getEffect(tree, node) * Math.exp(raw);
+            }
+
+            @Override
+            public double center() {
+                return 0;
+            }
+
+            @Override
+            public double lower() {
+                return Double.NEGATIVE_INFINITY;
+            }
+
+            @Override
+            public double upper() {
+                return Double.POSITIVE_INFINITY;
+            }
+
+            @Override
+            public double randomize(double raw) {
+                return raw;
+            }
+
+            @Override
+            protected void handleModelChangedEvent(Model model, Object object, int index) {
+                fireModelChanged();
+            }
+
+            @Override
+            protected void handleVariableChangedEvent(Variable variable, int index, Parameter.ChangeType type) {
+                fireModelChanged();
+            }
+
+            @Override
+            protected void storeState() { }
+
+            @Override
+            protected void restoreState() { }
+
+            @Override
+            protected void acceptState() { }
+        }
+
         class LocationScaleLogNormal extends AbstractModel implements BranchRateTransform {
 
             private final BranchSpecificFixedEffects location;
@@ -589,8 +659,16 @@ public class ArbitraryBranchRates extends AbstractBranchRateModel implements Dif
 
     @Override
     public List<Citation> getCitations() {
-        return Collections.singletonList(CITATION);
+        if (citations.isEmpty()) {
+            return Collections.singletonList(CITATION);
+        }
+        return citations;
     }
+
+    public void addCitation(Citation citation) {
+        citations.add(citation);
+    }
+    List<Citation> citations = new ArrayList<>();
 
     public static Citation CITATION = new Citation(
             new Author[]{

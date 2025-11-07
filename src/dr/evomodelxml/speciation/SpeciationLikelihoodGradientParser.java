@@ -1,7 +1,8 @@
 /*
  * SpeciationLikelihoodGradientParser.java
  *
- * Copyright (c) 2002-2019 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,13 +22,12 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodelxml.speciation;
 
-import dr.evomodel.speciation.BirthDeathGernhard08Model;
-import dr.evomodel.speciation.SpeciationLikelihood;
-import dr.evomodel.speciation.SpeciationLikelihoodGradient;
+import dr.evomodel.speciation.*;
 import dr.evomodel.tree.TreeModel;
 import dr.xml.*;
 
@@ -38,16 +38,27 @@ import dr.xml.*;
 public class SpeciationLikelihoodGradientParser extends AbstractXMLObjectParser {
 
     private static final String NAME = "speciationLikelihoodGradient";
+    private static final String WRT_PARAMETER = "wrtParameter";
+    private static final String USE_NEW_LOOP = "useNewLoop";
 
     @Override
     public Object parseXMLObject(XMLObject xo) throws XMLParseException {
         SpeciationLikelihood likelihood = (SpeciationLikelihood) xo.getChild(SpeciationLikelihood.class);
         TreeModel tree = (TreeModel) xo.getChild(TreeModel.class);
+        String wrtParamter = (String) xo.getAttribute(WRT_PARAMETER);
 
-        if (! (likelihood.getSpeciationModel() instanceof BirthDeathGernhard08Model)) {
+        if (! ((likelihood.getSpeciationModel() instanceof BirthDeathGernhard08Model) || (likelihood.getSpeciationModel() instanceof NewBirthDeathSerialSamplingModel) || (likelihood.getSpeciationModel() instanceof BirthDeathEpisodicSeriallySampledModel)) ) {
             throw new RuntimeException("Not yet implemented for other cases.");
         }
-        return new SpeciationLikelihoodGradient(likelihood, tree);
+
+        SpeciationLikelihoodGradient.WrtParameter type = SpeciationLikelihoodGradient.WrtParameter.factory(wrtParamter);
+
+        boolean newLoop = xo.getAttribute(USE_NEW_LOOP, false);
+        if (newLoop && (likelihood instanceof EfficientSpeciationLikelihood)) {
+            return new EfficientSpeciationLikelihoodGradient((EfficientSpeciationLikelihood) likelihood, type);
+        } else {
+            return new SpeciationLikelihoodGradient(likelihood, tree, type);
+        }
     }
 
     @Override
@@ -56,8 +67,10 @@ public class SpeciationLikelihoodGradientParser extends AbstractXMLObjectParser 
     }
 
     private final XMLSyntaxRule[] rules = {
+            AttributeRule.newStringRule(WRT_PARAMETER),
             new ElementRule(SpeciationLikelihood.class),
             new ElementRule(TreeModel.class),
+            AttributeRule.newBooleanRule(USE_NEW_LOOP, true),
     };
 
     @Override

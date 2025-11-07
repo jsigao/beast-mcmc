@@ -1,7 +1,8 @@
 /*
- * BeagleTreeLikelihood.java
+ * TreeDataLikelihood.java
  *
- * Copyright (c) 2002-2016 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.treedatalikelihood;
@@ -43,7 +45,6 @@ import java.util.logging.Logger;
  *
  * @author Andrew Rambaut
  * @author Marc Suchard
- * @version $Id$
  */
 
 public final class TreeDataLikelihood extends AbstractModelLikelihood implements TreeTraitProvider, Citable, Profileable, Reportable {
@@ -57,17 +58,19 @@ public final class TreeDataLikelihood extends AbstractModelLikelihood implements
 
         super("TreeDataLikelihood");  // change this to use a const once the parser exists
 
-        assert likelihoodDelegate != null;
+        //assert likelihoodDelegate != null;
         assert treeModel != null;
         assert branchRateModel != null;
 
         final Logger logger = Logger.getLogger("dr.evomodel");
 
-        logger.info("\nUsing TreeDataLikelihood");
+        logger.info("\nCreating TreeDataLikelihood");
 
         this.likelihoodDelegate = likelihoodDelegate;
-        addModel(likelihoodDelegate);
-        likelihoodDelegate.setCallback(this);
+        if(likelihoodDelegate != null) {
+            addModel(likelihoodDelegate);
+            likelihoodDelegate.setCallback(this);
+        }
 
         this.treeModel = treeModel;
         isTreeRandom = (treeModel instanceof AbstractModel) && ((AbstractModel) treeModel).isVariable();
@@ -79,17 +82,29 @@ public final class TreeDataLikelihood extends AbstractModelLikelihood implements
 
         this.branchRateModel = branchRateModel;
         if (!(branchRateModel instanceof DefaultBranchRateModel)) {
-            logger.info("  Branch rate model used: " + branchRateModel.getModelName());
+            logger.info("  Branch rate model: " + branchRateModel.getModelName());
         }
         addModel(this.branchRateModel);
 
-        treeTraversalDelegate = new LikelihoodTreeTraversal(treeModel, branchRateModel,
-                likelihoodDelegate.getOptimalTraversalType()
-        );
+        if(likelihoodDelegate != null) {
+            treeTraversalDelegate = new LikelihoodTreeTraversal(treeModel, branchRateModel,
+                    likelihoodDelegate.getOptimalTraversalType()
+            );
+        }else{
+            treeTraversalDelegate = null;
+        }
 
-        rateRescalingScheme = likelihoodDelegate.getRateRescalingScheme();
+        if(likelihoodDelegate != null) {
+            rateRescalingScheme = likelihoodDelegate.getRateRescalingScheme();
+        }else{
+            rateRescalingScheme = null;
+        }
 
-        hasInitialized = true;
+        if(likelihoodDelegate != null) {
+            hasInitialized = true;
+        }else{
+            hasInitialized = false;
+        }
     }
 
     public final Tree getTree() {
@@ -100,8 +115,19 @@ public final class TreeDataLikelihood extends AbstractModelLikelihood implements
         return branchRateModel;
     }
 
-    public final DataLikelihoodDelegate getDataLikelihoodDelegate() {
+    public DataLikelihoodDelegate getDataLikelihoodDelegate() {
         return likelihoodDelegate;
+    }
+
+    public void setDataLikelihoodDelegate(DataLikelihoodDelegate dld){
+        likelihoodDelegate = dld;
+        addModel(likelihoodDelegate);
+        likelihoodDelegate.setCallback(this);
+        treeTraversalDelegate = new LikelihoodTreeTraversal(treeModel, branchRateModel,
+                likelihoodDelegate.getOptimalTraversalType()
+        );
+        rateRescalingScheme = likelihoodDelegate.getRateRescalingScheme();
+        hasInitialized = true;
     }
 
     // **************************************************************
@@ -116,60 +142,70 @@ public final class TreeDataLikelihood extends AbstractModelLikelihood implements
     @Override
     @SuppressWarnings("Duplicates")
     public final double getLogLikelihood() {
-        if (COUNT_TOTAL_OPERATIONS)
-            totalGetLogLikelihoodCount++;
+        if(likelihoodDelegate != null) {
+            if (COUNT_TOTAL_OPERATIONS)
+                totalGetLogLikelihoodCount++;
 
-        if (!likelihoodKnown) {
-            long startTime;
-            if (COUNT_TOTAL_OPERATIONS) {
-                totalCalculateLikelihoodCount++;
-                startTime = System.nanoTime();
+            if (!likelihoodKnown) {
+                long startTime;
+                if (COUNT_TOTAL_OPERATIONS) {
+                    totalCalculateLikelihoodCount++;
+                    startTime = System.nanoTime();
+                }
+
+                logLikelihood = calculateLogLikelihood();
+
+                if (COUNT_TOTAL_OPERATIONS) {
+                    long endTime = System.nanoTime();
+                    totalLikelihoodTime += (endTime - startTime) / 1000000;
+                }
+
+                setAllNodesUpdated();
+                likelihoodKnown = true;
             }
 
-            logLikelihood = calculateLogLikelihood();
+            return logLikelihood;
 
-            if (COUNT_TOTAL_OPERATIONS) {
-                long endTime = System.nanoTime();
-                totalLikelihoodTime += (endTime - startTime) / 1000000;
-            }
-
-            setAllNodesUpdated();
+        }else{
             likelihoodKnown = true;
+            return 0.0;
         }
-
-        return logLikelihood;
     }
 
     final void calculatePostOrderStatistics() {
-        if (COUNT_TOTAL_OPERATIONS) {
-            totalPostOrderStatistics++;
-        }
-
-        if (!likelihoodKnown) {
+        if(likelihoodDelegate != null) {
             if (COUNT_TOTAL_OPERATIONS) {
-                totalCalculatePostOrderStatistics++;
+                totalPostOrderStatistics++;
             }
 
-            likelihoodDelegate.setComputePostOrderStatisticsOnly(true);
-            double tmp = calculateLogLikelihood();
-            likelihoodDelegate.setComputePostOrderStatisticsOnly(false);
+            if (!likelihoodKnown) {
+                if (COUNT_TOTAL_OPERATIONS) {
+                    totalCalculatePostOrderStatistics++;
+                }
 
-            if (!likelihoodDelegate.providesPostOrderStatisticsOnly()) {
-                setAllNodesUpdated();
-                logLikelihood = tmp;
-                likelihoodKnown = true;
+                likelihoodDelegate.setComputePostOrderStatisticsOnly(true);
+                double tmp = calculateLogLikelihood();
+                likelihoodDelegate.setComputePostOrderStatisticsOnly(false);
+
+                if (!likelihoodDelegate.providesPostOrderStatisticsOnly()) {
+                    setAllNodesUpdated();
+                    logLikelihood = tmp;
+                    likelihoodKnown = true;
+                }
             }
         }
     }
 
     @Override
     public final void makeDirty() {
-        if (COUNT_TOTAL_OPERATIONS)
-            totalMakeDirtyCount++;
+        if(likelihoodDelegate != null) {
+            if (COUNT_TOTAL_OPERATIONS)
+                totalMakeDirtyCount++;
 
-        likelihoodKnown = false;
-        likelihoodDelegate.makeDirty();
-        updateAllNodes();
+            likelihoodKnown = false;
+            likelihoodDelegate.makeDirty();
+            updateAllNodes();
+        }
     }
 
     public final boolean isLikelihoodKnown() {
@@ -190,63 +226,68 @@ public final class TreeDataLikelihood extends AbstractModelLikelihood implements
 
     @Override
     protected final void handleModelChangedEvent(Model model, Object object, int index) {
+        if(likelihoodDelegate != null) {
+            if (model == treeModel) {
+                if (object instanceof TreeChangedEvent) {
 
-        if (model == treeModel) {
-            if (object instanceof TreeChangedEvent) {
+                    final TreeChangedEvent treeChangedEvent = (TreeChangedEvent) object;
 
-                final TreeChangedEvent treeChangedEvent = (TreeChangedEvent) object;
+                    if (!isTreeRandom) throw new IllegalStateException("Attempting to change a fixed tree");
 
-                if (!isTreeRandom) throw new IllegalStateException("Attempting to change a fixed tree");
-
-                if (treeChangedEvent.isNodeChanged()) {
-                    // If a node event occurs the node and its two child nodes
-                    // are flagged for updating (this will result in everything
-                    // above being updated as well. Node events occur when a node
-                    // is added to a branch, removed from a branch or its height or
-                    // rate changes.
-                    if (rateRescalingScheme == RateRescalingScheme.NONE ||             // The usual behaviour
-                            (rateRescalingScheme == RateRescalingScheme.TREE_HEIGHT && // Or, tree-height scaling
-                                    !treeModel.isRoot(treeChangedEvent.getNode()))) {  // and not the root
-                        updateNodeAndChildren(((TreeChangedEvent) object).getNode());
-                    } else {
-                        // Tree-length scaling or a change of the root
+                    if (treeChangedEvent.isNodeChanged()) {
+                        // If a node event occurs the node and its two child nodes
+                        // are flagged for updating (this will result in everything
+                        // above being updated as well. Node events occur when a node
+                        // is added to a branch, removed from a branch or its height or
+                        // rate changes.
+                        if (rateRescalingScheme == RateRescalingScheme.NONE ||             // The usual behaviour
+                                (rateRescalingScheme == RateRescalingScheme.TREE_HEIGHT && // Or, tree-height scaling
+                                        !treeModel.isRoot(treeChangedEvent.getNode()))) {  // and not the root
+                            updateNodeAndChildren(((TreeChangedEvent) object).getNode());
+                        } else {
+                            // Tree-length scaling or a change of the root
+                            updateAllNodes();
+                        }
+                    } else if (treeChangedEvent.isTreeChanged()) {
+                        // Full tree events result in a complete updating of the tree likelihood
+                        // This event type is now used for EmpiricalTreeDistributions.
                         updateAllNodes();
                     }
-                } else if (treeChangedEvent.isTreeChanged()) {
-                    // Full tree events result in a complete updating of the tree likelihood
-                    // This event type is now used for EmpiricalTreeDistributions.
-                    updateAllNodes();
-                }
 //                else {
 //                    // Other event types are ignored (probably trait changes).
 //                }
-            }
-        } else if (model == likelihoodDelegate) {
+                }
+            } else if (model == likelihoodDelegate) {
 
-            if (index == -1) {
-                updateAllNodes();
+                if(object instanceof Parameter){
+                    updateAllNodes();
+                    likelihoodKnown = false;
+                }else {
+                    if (index == -1) {
+                        updateAllNodes();
+                    } else {
+                        updateNode(treeModel.getNode(index));
+                    }
+                }
+            } else if (model == branchRateModel) {
+
+                if (index == -1) {
+                    updateAllNodes();
+                } else {
+                    updateNode(treeModel.getNode(index));
+                }
             } else {
-                updateNode(treeModel.getNode(index));
+
+                assert false : "Unknown componentChangedEvent";
             }
 
-        } else if (model == branchRateModel) {
+            if (COUNT_TOTAL_OPERATIONS)
+                totalModelChangedCount++;
 
-            if (index == -1) {
-                updateAllNodes();
-            } else {
-                updateNode(treeModel.getNode(index));
-            }
-        } else {
+            likelihoodKnown = false;
 
-            assert false : "Unknown componentChangedEvent";
+            fireModelChanged();
         }
-
-        if (COUNT_TOTAL_OPERATIONS)
-            totalModelChangedCount++;
-
-        likelihoodKnown = false;
-
-        fireModelChanged();
     }
 
     // **************************************************************
@@ -281,39 +322,43 @@ public final class TreeDataLikelihood extends AbstractModelLikelihood implements
      */
     private double calculateLogLikelihood() {
 
-        double logL = Double.NEGATIVE_INFINITY;
-        boolean done = false;
-        long underflowCount = 0;
+        if(likelihoodDelegate == null){
+            return 0.0;
+        }else {
+            double logL = Double.NEGATIVE_INFINITY;
+            boolean done = false;
+            long underflowCount = 0;
 
-        do {
-            treeTraversalDelegate.dispatchTreeTraversalCollectBranchAndNodeOperations();
+            do {
+                treeTraversalDelegate.dispatchTreeTraversalCollectBranchAndNodeOperations();
 
-            final List<DataLikelihoodDelegate.BranchOperation> branchOperations = treeTraversalDelegate.getBranchOperations();
-            final List<DataLikelihoodDelegate.NodeOperation> nodeOperations = treeTraversalDelegate.getNodeOperations();
+                final List<DataLikelihoodDelegate.BranchOperation> branchOperations = treeTraversalDelegate.getBranchOperations();
+                final List<DataLikelihoodDelegate.NodeOperation> nodeOperations = treeTraversalDelegate.getNodeOperations();
 
-            if (COUNT_TOTAL_OPERATIONS) {
-                totalMatrixUpdateCount += branchOperations.size();
-                totalOperationCount += nodeOperations.size();
-            }
+                if (COUNT_TOTAL_OPERATIONS) {
+                    totalMatrixUpdateCount += branchOperations.size();
+                    totalOperationCount += nodeOperations.size();
+                }
 
-            final NodeRef root = treeModel.getRoot();
+                final NodeRef root = treeModel.getRoot();
 
-            try {
-                logL = likelihoodDelegate.calculateLikelihood(branchOperations, nodeOperations, root.getNumber());
+                try {
+                    logL = likelihoodDelegate.calculateLikelihood(branchOperations, nodeOperations, root.getNumber());
 
-                done = true;
-            } catch (DataLikelihoodDelegate.LikelihoodException e) {
+                    done = true;
+                } catch (DataLikelihoodDelegate.LikelihoodException e) {
 
-                // if there is an underflow, assume delegate will attempt to rescale
-                // so flag all nodes to update and return to try again.
-                updateAllNodes();
-                underflowCount++;
-            }
+                    // if there is an underflow, assume delegate will attempt to rescale
+                    // so flag all nodes to update and return to try again.
+                    updateAllNodes();
+                    underflowCount++;
+                }
 
-        } while (!done && underflowCount < MAX_UNDERFLOWS_BEFORE_ERROR);
+            } while (!done && underflowCount < MAX_UNDERFLOWS_BEFORE_ERROR);
 
 
-        return logL;
+            return logL;
+        }
     }
 
     private void setAllNodesUpdated() {
@@ -457,7 +502,7 @@ public final class TreeDataLikelihood extends AbstractModelLikelihood implements
 
     @Override
     public String getDescription() {
-        if (likelihoodDelegate instanceof Citable) {
+        if (likelihoodDelegate != null && likelihoodDelegate instanceof Citable) {
             return ((Citable) likelihoodDelegate).getDescription();
         } else {
             return null;
@@ -466,7 +511,7 @@ public final class TreeDataLikelihood extends AbstractModelLikelihood implements
 
     @Override
     public List<Citation> getCitations() {
-        if (likelihoodDelegate instanceof Citable) {
+        if (likelihoodDelegate != null && likelihoodDelegate instanceof Citable) {
             return ((Citable) likelihoodDelegate).getCitations();
         } else {
             return new ArrayList<>();
@@ -479,7 +524,11 @@ public final class TreeDataLikelihood extends AbstractModelLikelihood implements
 
     @Override
     public long getTotalCalculationCount() {
-        return likelihoodDelegate.getTotalCalculationCount();
+        if(likelihoodDelegate != null) {
+            return likelihoodDelegate.getTotalCalculationCount();
+        }else{
+            return 0;
+        }
     }
 
     // **************************************************************
@@ -489,7 +538,7 @@ public final class TreeDataLikelihood extends AbstractModelLikelihood implements
     /**
      * The data likelihood delegate
      */
-    private final DataLikelihoodDelegate likelihoodDelegate;
+    private DataLikelihoodDelegate likelihoodDelegate;
 
     /**
      * the tree model
@@ -506,9 +555,9 @@ public final class TreeDataLikelihood extends AbstractModelLikelihood implements
      */
     private final Helper treeTraits = new Helper();
 
-    private final LikelihoodTreeTraversal treeTraversalDelegate;
+    private LikelihoodTreeTraversal treeTraversalDelegate;
 
-    private final RateRescalingScheme rateRescalingScheme;
+    private RateRescalingScheme rateRescalingScheme;
 
     private double logLikelihood;
     private double storedLogLikelihood;

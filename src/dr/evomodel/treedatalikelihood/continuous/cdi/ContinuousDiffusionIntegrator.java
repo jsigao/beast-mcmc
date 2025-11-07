@@ -1,7 +1,8 @@
 /*
  * ContinuousDiffusionIntegrator.java
  *
- * Copyright (c) 2002-2016 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.treedatalikelihood.continuous.cdi;
@@ -148,7 +150,7 @@ public interface ContinuousDiffusionIntegrator extends Reportable {
         final int bufferCount;
         final int diffusionCount;
 
-        final int dimMatrix;
+//        final int dimMatrix;
         final int dimPartialForTrait;
         final int dimPartial;
 
@@ -189,15 +191,14 @@ public interface ContinuousDiffusionIntegrator extends Reportable {
             this.bufferCount = bufferCount;
             this.diffusionCount = diffusionCount;
 
-            this.dimMatrix = precisionType.getMatrixLength(dimTrait);
-            this.dimPartialForTrait = dimTrait + dimMatrix;
+            this.dimPartialForTrait = precisionType.getPartialsDimension(dimTrait);
             this.dimPartial = numTraits * dimPartialForTrait;
 
             if (DEBUG) {
                 System.err.println("numTraits: " + numTraits);
                 System.err.println("dimTrait: " + dimTrait);
                 System.err.println("dimProcess: " + dimProcess);
-                System.err.println("dimMatrix: " + dimMatrix);
+//                System.err.println("dimMatrix: " + dimMatrix);
                 System.err.println("dimPartialForTrait: " + dimPartialForTrait);
                 System.err.println("dimPartial: " + dimPartial);
             }
@@ -242,7 +243,7 @@ public interface ContinuousDiffusionIntegrator extends Reportable {
 
         @Override
         public double getBranchLength(int bufferIndex) {
-            return branchLengths[bufferIndex * dimMatrix];
+            return branchLengths[bufferIndex];
         }
 
         @Override
@@ -598,8 +599,7 @@ public interface ContinuousDiffusionIntegrator extends Reportable {
                     System.err.println("\t" + probabilityIndices[up] + " <- " + edgeLengths[up]);
                 }
 
-                // TODO Currently only written for SCALAR model
-                branchLengths[dimMatrix * probabilityIndices[up]] = edgeLengths[up];  // TODO Remove dimMatrix
+                branchLengths[probabilityIndices[up]] = edgeLengths[up];
             }
 
             updatePrecisionOffsetAndDeterminant(precisionIndex);
@@ -667,8 +667,8 @@ public interface ContinuousDiffusionIntegrator extends Reportable {
             int jbo = dimPartial * jBuffer;
 
             // Determine matrix offsets
-            final int imo = dimMatrix * iMatrix;
-            final int jmo = dimMatrix * jMatrix;
+            final int imo = iMatrix; //TODO: not sure why we need iMatrix & jMatrix to begin with?
+            final int jmo = jMatrix;
 
             // Read variance increments along descendant branches of k
             final double vi = branchLengths[imo];
@@ -809,8 +809,8 @@ public interface ContinuousDiffusionIntegrator extends Reportable {
             int jbo = dimPartial * jBuffer;
 
             // Determine matrix offsets
-            final int imo = dimMatrix * iMatrix;
-            final int jmo = dimMatrix * jMatrix;
+            final int imo = iMatrix; //TODO: just use iMatrix * jMatrix? (also, why do we need these?)
+            final int jmo = jMatrix;
 
             // Read variance increments along descendant branches of k
             final double vi = branchLengths[imo];
@@ -978,7 +978,7 @@ public interface ContinuousDiffusionIntegrator extends Reportable {
             }
         }
 
-        private static void updateMean(final double[] partials,
+        protected static void updateMean(final double[] partials,
                                        final int kob,
                                        final int iob,
                                        final int job,
@@ -996,7 +996,7 @@ public interface ContinuousDiffusionIntegrator extends Reportable {
 
         private void allocateStorage() {
             partials = new double[dimPartial * bufferCount];
-            branchLengths = new double[dimMatrix * bufferCount]; // TODO Should be just bufferCount
+            branchLengths = new double[bufferCount];
 //            variances = new double[dimMatrix * bufferCount]; // TODO Should be dimTrait * dimTrait
             remainders = new double[numTraits * bufferCount];
 

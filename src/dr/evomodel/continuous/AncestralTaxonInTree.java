@@ -1,7 +1,8 @@
 /*
- * RestrictedPartials.java
+ * AncestralTaxonInTree.java
  *
- * Copyright (c) 2002-2016 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.continuous;
@@ -64,7 +66,8 @@ public class AncestralTaxonInTree extends AbstractModel {
                                 Parameter height,
                                 NodeRef node, int index,
                                 double offset,
-                                boolean alwaysContrainedToRoot) throws TreeUtils.MissingTaxonException {
+                                boolean alwaysContrainedToRoot,
+                                boolean addTipHeightBound) throws TreeUtils.MissingTaxonException {
 
         super(ancestor.getId());
 
@@ -89,6 +92,7 @@ public class AncestralTaxonInTree extends AbstractModel {
         }
 
         isAtRoot = alwaysContrainedToRoot;
+        this.addTipHeightBound = addTipHeightBound;
     }
 
     // Public API
@@ -108,6 +112,8 @@ public class AncestralTaxonInTree extends AbstractModel {
     final public boolean isOnAncestralPath() { return height != null; } // TODO Refactor into subclass
 
     final public boolean isAtRoot() { return isAtRoot; }
+
+    final public boolean addTipHeightBound() { return addTipHeightBound; }
 
     final public NodeRef getTipNode() { return tipNode; } // TODO Refactor into subclass
 
@@ -176,6 +182,7 @@ public class AncestralTaxonInTree extends AbstractModel {
     final private Parameter height;
     final private double offset;
     final private boolean isAtRoot;
+    final private boolean addTipHeightBound;
 
     private int index;
     private NodeRef node;

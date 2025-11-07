@@ -1,7 +1,8 @@
 /*
  * WrappedVector.java
  *
- * Copyright (c) 2002-2017 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,12 +22,14 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.math.matrixAlgebra;
 
 
 import dr.inference.model.Variable;
+import dr.xml.AbstractXMLObjectParser;
 
 /**
  * @author Marc A. Suchard
@@ -83,6 +86,18 @@ public interface WrappedVector extends ReadableVector, WritableVector {
             this(buffer, 0, buffer.length);
         }
 
+        public Raw(int[] in) {
+            this(convert(in), 0, in.length);
+        }
+
+        private static double[] convert(int[] in) {
+            double[] buffer = new double[in.length];
+            for (int i = 0; i < in.length; ++i) {
+                buffer[i] = in[i];
+            }
+            return buffer;
+        }
+
         @Override
         final public double get(final int i) {
             return buffer[offset + i];
@@ -98,6 +113,10 @@ public interface WrappedVector extends ReadableVector, WritableVector {
 
         public View(WrappedVector vector, int offset, int length) {
             super(vector.getBuffer(), vector.getOffset() + offset, length);
+
+            if (!(vector instanceof WrappedVector.Raw)) {
+                throw new RuntimeException("This can only extend WrappedVector.Raw");
+            }
         }
     }
 
@@ -125,8 +144,8 @@ public interface WrappedVector extends ReadableVector, WritableVector {
 
         final private int[] indices;
 
-        public Indexed(double[] buffer, int offset, int[] indices, int dim) {
-            super(buffer, offset, dim);
+        public Indexed(double[] buffer, int offset, int[] indices) {
+            super(buffer, offset, indices.length);
             this.indices = indices;
         }
 

@@ -1,7 +1,8 @@
 /*
  * TreeScaledRepeatedMeasuresTraitDataModel.java
  *
- * Copyright (c) 2002-2019 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,18 +22,18 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.treedatalikelihood.continuous;
 
 import dr.evolution.tree.NodeRef;
 import dr.evolution.tree.Tree;
+import dr.evomodel.treedatalikelihood.continuous.cdi.PrecisionType;
 import dr.inference.model.CompoundParameter;
 import dr.inference.model.MatrixParameterInterface;
 import org.ejml.data.DenseMatrix64F;
 import org.ejml.ops.CommonOps;
-
-import java.util.List;
 
 /**
  * @author Marc A. Suchard
@@ -44,12 +45,21 @@ public class TreeScaledRepeatedMeasuresTraitDataModel extends RepeatedMeasuresTr
     private ContinuousRateTransformation rateTransformation;
 
     public TreeScaledRepeatedMeasuresTraitDataModel(String name,
+                                                    ContinuousTraitPartialsProvider childModel,
                                                     CompoundParameter parameter,
                                                     boolean[] missingIndicators,
                                                     boolean useMissingIndices,
                                                     final int dimTrait,
-                                                    MatrixParameterInterface samplingPrecision) {
-        super(name, parameter, missingIndicators, useMissingIndices, dimTrait, samplingPrecision);
+                                                    final int numTraits,
+                                                    MatrixParameterInterface samplingPrecision,
+                                                    PrecisionType precisionType) {
+        super(name, childModel, parameter, missingIndicators, useMissingIndices, dimTrait, numTraits,
+                samplingPrecision, precisionType);
+
+        if (!(childModel instanceof ContinuousTraitDataModel)) {
+            throw new RuntimeException("not yet implemented for alternative child models. " +
+                    "(can't just scale the partial in super.getTipPartial)");
+        }
     }
 
     @Override

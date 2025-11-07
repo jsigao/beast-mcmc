@@ -1,7 +1,8 @@
 /*
- * TransformedTreeModel.java
+ * AncestralTraitTreeModel.java
  *
- * Copyright (c) 2002-2015 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.tree;
@@ -30,10 +32,7 @@ import dr.evolution.util.MutableTaxonListListener;
 import dr.evolution.util.Taxon;
 import dr.evolution.util.TaxonList;
 import dr.evomodel.continuous.AncestralTaxonInTree;
-import dr.inference.model.AbstractModel;
-import dr.inference.model.Model;
-import dr.inference.model.Parameter;
-import dr.inference.model.Variable;
+import dr.inference.model.*;
 import dr.util.Citable;
 import dr.util.Citation;
 import dr.util.CommonCitations;
@@ -76,6 +75,49 @@ public class AncestralTraitTreeModel extends AbstractModel implements MutableTre
     @Override
     public NodeRef getTransformedNode(NodeRef originalNode) {
         return new BasicNode(mapOriginalToShadowNumber(originalNode.getNumber()));
+    }
+
+    private Map<Parameter,NodeRef> heightParameterBoundMap;
+
+    public void addTipHeightBound(NodeRef nodeRef) {
+        Parameter heightParameter = ((DefaultTreeModel.Node) nodeRef).getHeightParameter();
+        heightParameter.addBounds(new NodeHeightBoundsWithAncestor(heightParameter));
+
+        if (heightParameterBoundMap == null) {
+            heightParameterBoundMap = new HashMap<>();
+        }
+
+        heightParameterBoundMap.put(heightParameter, nodeRef);
+    }
+
+    public ShadowNode getNodeOfHeightParameter(Parameter parameter) {
+
+        NodeRef originalNode = heightParameterBoundMap.get(parameter);
+        if (originalNode == null) throw new IllegalArgumentException("Unknown height parameter");
+
+        return nodes[mapOriginalToShadowNumber(originalNode.getNumber())];
+    }
+
+    private class NodeHeightBoundsWithAncestor implements Bounds<Double> {
+
+        public NodeHeightBoundsWithAncestor(Parameter parameter) {
+            nodeHeightParameter = parameter;
+        }
+
+        public Double getUpperLimit(int i) {
+            ShadowNode node = getNodeOfHeightParameter(nodeHeightParameter);
+            return getNodeHeight(node.parent);
+        }
+
+        public Double getLowerLimit(int i) {
+            return 0.0;
+        }
+
+        public int getBoundsDimension() {
+            return 1;
+        }
+
+        private final Parameter nodeHeightParameter;
     }
 
     public class ShadowNode implements NodeRef {
@@ -182,7 +224,7 @@ public class AncestralTraitTreeModel extends AbstractModel implements MutableTre
         StringBuilder sb = new StringBuilder();
         for (ShadowNode node : nodes) {
             if (node != null) {
-                sb.append(node.toString()).append("\n");
+                sb.append(node).append("\n");
             } else {
                 sb.append("null\n");
             }
@@ -1057,7 +1099,7 @@ public class AncestralTraitTreeModel extends AbstractModel implements MutableTre
                 while (parentHeight < pathHeight && parent != tree.getRoot()) {
                     node = parent;
 
-                    ancestralPathNodeNumbers.add(node.getNumber());;
+                    ancestralPathNodeNumbers.add(node.getNumber());
 
                     parent = tree.getParent(parent);
                     parentHeight = tree.getNodeHeight(parent);

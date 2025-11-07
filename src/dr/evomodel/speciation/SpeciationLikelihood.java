@@ -1,7 +1,8 @@
 /*
  * SpeciationLikelihood.java
  *
- * Copyright (c) 2002-2015 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.speciation;
@@ -33,6 +35,7 @@ import dr.inference.model.AbstractModelLikelihood;
 import dr.inference.model.Model;
 import dr.inference.model.Parameter;
 import dr.inference.model.Variable;
+import dr.xml.Reportable;
 
 import java.util.Set;
 
@@ -43,9 +46,8 @@ import java.util.Set;
  *
  * @author Andrew Rambaut
  * @author Alexei Drummond
- * @version $Id: SpeciationLikelihood.java,v 1.10 2005/05/18 09:51:11 rambaut Exp $
  */
-public class SpeciationLikelihood extends AbstractModelLikelihood implements Units {
+public class SpeciationLikelihood extends AbstractModelLikelihood implements Reportable, Units {
 
     // PUBLIC STUFF
     /**
@@ -79,16 +81,17 @@ public class SpeciationLikelihood extends AbstractModelLikelihood implements Uni
         }
     }
 
-    public SpeciationLikelihood(Tree tree, SpeciationModel specModel, String id, CalibrationPoints calib) {
+    public SpeciationLikelihood(Tree tree, SpeciationModel specModel, String id, CalibrationPoints calibration) {
         this(tree, specModel, id);
-        this.calibration = calib;
+        this.calibration = calibration;
     }
 
     // **************************************************************
     // ModelListener IMPLEMENTATION
     // **************************************************************
 
-    protected final void handleModelChangedEvent(Model model, Object object, int index) {
+    // TODO Make final again after done with EfficientSpeciationLikelihood
+    protected void handleModelChangedEvent(Model model, Object object, int index) {
         likelihoodKnown = false;
     }
 
@@ -148,7 +151,8 @@ public class SpeciationLikelihood extends AbstractModelLikelihood implements Uni
      *
      * @return the log likelihood
      */
-    private double calculateLogLikelihood() {
+    double calculateLogLikelihood() {
+
         if (exclude != null) {
             return speciationModel.calculateTreeLogLikelihood(tree, exclude);
         }
@@ -159,6 +163,16 @@ public class SpeciationLikelihood extends AbstractModelLikelihood implements Uni
 
         return speciationModel.calculateTreeLogLikelihood(tree);
     }
+
+    // Super-clean interface (just one intrusive function) and a better place, since `Likelihood`s have gradients (`Model`s do not).
+    public SpeciationModelGradientProvider getGradientProvider() {
+        if (gradientProvider == null) {
+            gradientProvider = speciationModel.getProvider();
+        }
+        return gradientProvider;
+    }
+
+    private SpeciationModelGradientProvider gradientProvider = null;
 
     // **************************************************************
     // Loggable IMPLEMENTATION
@@ -175,6 +189,15 @@ public class SpeciationLikelihood extends AbstractModelLikelihood implements Uni
         return new dr.inference.loggers.LogColumn[]{
                 new LikelihoodColumn(columnName)
         };
+    }
+
+    @Override
+    public String getReport() {
+        String report = "SpeciationLikelihoodReport:\n" +
+                "Model: " + speciationModel.getModelName() + "\n" +
+                "ID: " + speciationModel.getId() + "\n" +
+                "lnL: " + calculateLogLikelihood();
+        return report;
     }
 
     private final class LikelihoodColumn extends dr.inference.loggers.NumberColumn {
@@ -229,12 +252,12 @@ public class SpeciationLikelihood extends AbstractModelLikelihood implements Uni
     /**
      * The speciation model.
      */
-    SpeciationModel speciationModel = null;
+    final SpeciationModel speciationModel;
 
     /**
      * The tree.
      */
-    Tree tree = null;
+    Tree tree;
     private final Set<Taxon> exclude;
 
     private CalibrationPoints calibration;

@@ -1,7 +1,8 @@
 /*
  * HomogeneousSubstitutionParameterGradient.java
  *
- * Copyright (c) 2002-2017 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.treedatalikelihood.discrete;
@@ -42,6 +44,8 @@ import dr.xml.Reportable;
 import java.util.ArrayList;
 import java.util.List;
 
+import static dr.evomodel.substmodel.DifferentialMassProvider.Mode;
+
 /**
  * @author Marc A. Suchard
  * @author Xiang Ji
@@ -53,15 +57,18 @@ public class HomogeneousSubstitutionParameterGradient implements GradientWrtPara
     private final TreeDataLikelihood treeDataLikelihood;
     private final TreeTrait treeTraitProvider;
     private final Tree tree;
+    private final Mode mode;
 
     public HomogeneousSubstitutionParameterGradient(String traitName,
                                                     TreeDataLikelihood treeDataLikelihood,
                                                     Parameter parameter,
                                                     BeagleDataLikelihoodDelegate likelihoodDelegate,
-                                                    int dim) {
+                                                    int dim,
+                                                    Mode mode) {
         this.parameter = parameter;
         this.treeDataLikelihood = treeDataLikelihood;
         this.tree = treeDataLikelihood.getTree();
+        this.mode = mode;
 
         final String name = BranchSubstitutionParameterDelegate.getName(traitName);
         TreeTrait test = treeDataLikelihood.getTreeTrait(name);
@@ -75,8 +82,10 @@ public class HomogeneousSubstitutionParameterGradient implements GradientWrtPara
             }
 
             DifferentialMassProvider.DifferentialWrapper.WrtParameter wrtParameter = substitutionModel.factory(parameter, dim);
-            DifferentialMassProvider differentialMassProvider = new DifferentialMassProvider.DifferentialWrapper(substitutionModel, wrtParameter);
-            List<DifferentialMassProvider> differentialMassProviderList = new ArrayList<DifferentialMassProvider>();
+            DifferentialMassProvider differentialMassProvider = new DifferentialMassProvider.DifferentialWrapper(
+                    substitutionModel, wrtParameter, mode);
+
+            List<DifferentialMassProvider> differentialMassProviderList = new ArrayList<>();
             differentialMassProviderList.add(differentialMassProvider);
 
             BranchDifferentialMassProvider branchDifferentialMassProvider =
@@ -87,6 +96,7 @@ public class HomogeneousSubstitutionParameterGradient implements GradientWrtPara
                     likelihoodDelegate,
                     treeDataLikelihood.getBranchRateModel(),
                     branchDifferentialMassProvider);
+
             TreeTraitProvider traitProvider = new ProcessSimulation(treeDataLikelihood, gradientDelegate);
             treeDataLikelihood.addTraits(traitProvider.getTreeTraits());
         }
@@ -125,8 +135,8 @@ public class HomogeneousSubstitutionParameterGradient implements GradientWrtPara
 
     @Override
     public String getReport() {
-        return GradientWrtParameterProvider.getReportAndCheckForError(this, 0.0, Double.POSITIVE_INFINITY, tolerance);
+        return mode.getReport() + " " + GradientWrtParameterProvider.getReportAndCheckForError(this, 0.0, Double.POSITIVE_INFINITY, tolerance);
     }
 
-    private final double tolerance = 1E-2;
+    private final double tolerance = 1E+2;
 }

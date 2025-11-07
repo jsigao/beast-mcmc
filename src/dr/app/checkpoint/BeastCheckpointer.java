@@ -1,7 +1,8 @@
 /*
  * BeastCheckpointer.java
  *
- * Copyright (c) 2002-2017 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.app.checkpoint;
@@ -42,6 +44,8 @@ import dr.math.MathUtils;
 
 import java.io.*;
 import java.text.SimpleDateFormat;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
@@ -50,6 +54,8 @@ import java.util.*;
  * @author Guy Baele
  */
 public class BeastCheckpointer implements StateLoaderSaver {
+
+    private static BeastCheckpointer single_instance = null;
 
     private static final boolean DEBUG = false;
 
@@ -61,36 +67,65 @@ public class BeastCheckpointer implements StateLoaderSaver {
     public final static String SAVE_STATE_AT = "save.state.at";
     public final static String SAVE_STATE_EVERY = "save.state.every";
     public final static String SAVE_STEM = "save.state.stem";
+    public final static String SAVE_STATE_TIME = "save.state.time";
 
     public final static String FORCE_RESUME = "force.resume";
     public final static String CHECKPOINT_SEED = "checkpoint.seed";
     public final static String REUSE_CHECKPOINTED_RNGSTATE = "reuse.checkpointed.rngstate";
     public final static String FULL_CHECKPOINT_PRECISION = "full.checkpoint.precision";
 
-    private final String loadStateFileName;
-    private final String saveStateFileName;
-
-    private final String stemFileName;
+    private String loadStateFileName;
+    private String saveStateFileName;
+    private String stemFileName;
 
     private boolean forceResume = false;
 
-    private final boolean useFullPrecision;
+    private boolean useFullPrecision;
 
-    public BeastCheckpointer() {
-        loadStateFileName = System.getProperty(LOAD_STATE_FILE, null);
-        saveStateFileName = System.getProperty(SAVE_STATE_FILE, null);
+    private final List<MarkovChainListener> listeners = new ArrayList<MarkovChainListener>();
 
-        stemFileName = System.getProperty(SAVE_STEM, null);
-
-        final List<MarkovChainListener> listeners = new ArrayList<MarkovChainListener>();
-
-        if (System.getProperty(SAVE_STATE_AT) != null) {
-            final long saveStateAt = Long.parseLong(System.getProperty(SAVE_STATE_AT));
-            listeners.add(new StateSaverChainListener(BeastCheckpointer.this, saveStateAt,false));
+    public static synchronized BeastCheckpointer getInstance(String checkpointFileName, int checkpointEvery, int checkpointFinal, boolean overwrite) {
+        if (single_instance == null) {
+            single_instance = new BeastCheckpointer(checkpointFileName, checkpointEvery, checkpointFinal, overwrite);
         }
-        if (System.getProperty(SAVE_STATE_EVERY) != null) {
-            final long saveStateEvery = Long.parseLong(System.getProperty(SAVE_STATE_EVERY));
-            listeners.add(new StateSaverChainListener(BeastCheckpointer.this, saveStateEvery,true));
+
+        return single_instance;
+    }
+
+    private BeastCheckpointer(String checkpointFileName, int checkpointEvery, int checkpointFinal, boolean overwrite) {
+
+        if (checkpointFileName == null && checkpointEvery == -1 && checkpointFinal == -1) {
+
+            loadStateFileName = System.getProperty(LOAD_STATE_FILE, null);
+            saveStateFileName = System.getProperty(SAVE_STATE_FILE, null);
+
+            stemFileName = System.getProperty(SAVE_STEM, null);
+
+            if (System.getProperty(SAVE_STATE_AT) != null) {
+                final long saveStateAt = Long.parseLong(System.getProperty(SAVE_STATE_AT));
+                listeners.add(new StateSaverChainListener(BeastCheckpointer.this, saveStateAt,false));
+            }
+            if (System.getProperty(SAVE_STATE_EVERY) != null) {
+                final long saveStateEvery = Long.parseLong(System.getProperty(SAVE_STATE_EVERY));
+                listeners.add(new StateSaverChainListener(BeastCheckpointer.this, saveStateEvery,true));
+            }
+
+        } else {
+
+            loadStateFileName = System.getProperty(LOAD_STATE_FILE, null);
+            saveStateFileName = checkpointFileName;
+
+            stemFileName = System.getProperty(SAVE_STEM, null);
+
+            listeners.add(new StateSaverChainListener(BeastCheckpointer.this, checkpointFinal,false));
+            listeners.add(new StateSaverChainListener(BeastCheckpointer.this, checkpointEvery,true));
+
+        }
+        if (System.getProperty(SAVE_STATE_TIME) != null) {
+            LocalTime saveTime = LocalTime.parse(System.getProperty(SAVE_STATE_TIME),
+                    DateTimeFormatter.ofPattern("HH:mm:ss"));
+            int saveSeconds = saveTime.toSecondOfDay();
+            listeners.add(new TimedStateSaverChainListener(BeastCheckpointer.this, saveSeconds));
         }
 
         useFullPrecision = (System.getProperty(FULL_CHECKPOINT_PRECISION) != null) &&
@@ -135,6 +170,11 @@ public class BeastCheckpointer implements StateLoaderSaver {
 
     }
 
+    //only here for reasons of inheritance (of the CheckPointModifier class)
+    protected BeastCheckpointer() {
+
+    }
+
     private BeastCheckpointer getStateLoaderObject() {
         return this;
     }
@@ -142,8 +182,10 @@ public class BeastCheckpointer implements StateLoaderSaver {
     @Override
     public boolean saveState(MarkovChain markovChain, long state, double lnL) {
         String fileName = "";
-        if (stemFileName != null) {
+        if (stemFileName != null && this.saveStateFileName == null) {
             fileName = stemFileName + "_" + state;
+        } else if (stemFileName != null) {
+            fileName = stemFileName + "_" + this.saveStateFileName;
         } else {
             String timeStamp = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(Calendar.getInstance().getTime());
             fileName = (this.saveStateFileName != null ? this.saveStateFileName : "beast_state_" + timeStamp);
@@ -201,7 +243,7 @@ public class BeastCheckpointer implements StateLoaderSaver {
 
                     //currently use the general BEAST -threshold argument
                     //TODO Evaluate whether a checkpoint-specific threshold option is required or useful
-                    double threshold = 0.0;
+                    double threshold = 1E-10;
                     if (System.getProperty("mcmc.evaluation.threshold") != null) {
                         threshold = Double.parseDouble(System.getProperty("mcmc.evaluation.threshold"));
                     }
@@ -662,7 +704,7 @@ public class BeastCheckpointer implements StateLoaderSaver {
                             System.out.println("adopting tree structure");
                         }
 
-                        //adopt the loaded tree structure;
+                        //adopt the loaded tree structure
                         ((TreeModel) model).beginTreeEdit();
                         if (model instanceof DefaultTreeModel && nodeHeightParameterNames[0] != null) {
                             ((DefaultTreeModel) model).adoptNodeHeightParameters(parents, nodeHeightParameterNames);

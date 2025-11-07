@@ -1,7 +1,8 @@
 /*
- * BranchSubstitutionParameterGradientParser.java
+ * ArbitrarySubstitutionGeneratorGradientParser.java
  *
- * Copyright (c) 2002-2017 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,21 +22,16 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodelxml.continuous.hmc;
 
-import dr.evomodel.branchmodel.BranchModel;
-import dr.evomodel.branchmodel.BranchSpecificSubstitutionParameterBranchModel;
-import dr.evomodel.branchratemodel.BranchRateModel;
-import dr.evomodel.substmodel.OldGLMSubstitutionModel;
+import dr.evomodel.substmodel.GlmSubstitutionModel;
 import dr.evomodel.treedatalikelihood.BeagleDataLikelihoodDelegate;
 import dr.evomodel.treedatalikelihood.TreeDataLikelihood;
 import dr.evomodel.treedatalikelihood.discrete.ArbitrarySubstitutionGeneratorGradient;
-import dr.evomodel.treedatalikelihood.discrete.BranchSubstitutionParameterGradient;
-import dr.evomodel.treedatalikelihood.discrete.HomogeneousSubstitutionParameterGradient;
 import dr.evomodelxml.treelikelihood.TreeTraitParserUtilities;
-import dr.inference.model.CompoundParameter;
 import dr.inference.model.Parameter;
 import dr.xml.*;
 
@@ -67,7 +63,7 @@ public class ArbitrarySubstitutionGeneratorGradientParser extends AbstractXMLObj
 
         BeagleDataLikelihoodDelegate beagleData = (BeagleDataLikelihoodDelegate) treeDataLikelihood.getDataLikelihoodDelegate();
 
-        OldGLMSubstitutionModel substitutionModel = (OldGLMSubstitutionModel) xo.getChild(OldGLMSubstitutionModel.class);
+        GlmSubstitutionModel substitutionModel = (GlmSubstitutionModel) xo.getChild(GlmSubstitutionModel.class);
 
         Parameter parameter = (Parameter) xo.getChild(Parameter.class);
         return new ArbitrarySubstitutionGeneratorGradient(traitName, treeDataLikelihood, beagleData, substitutionModel);
@@ -82,7 +78,7 @@ public class ArbitrarySubstitutionGeneratorGradientParser extends AbstractXMLObj
     private final XMLSyntaxRule[] rules = {
             AttributeRule.newStringRule(TRAIT_NAME),
             new ElementRule(TreeDataLikelihood.class),
-            new ElementRule(OldGLMSubstitutionModel.class),
+            new ElementRule(GlmSubstitutionModel.class),
     };
 
     @Override

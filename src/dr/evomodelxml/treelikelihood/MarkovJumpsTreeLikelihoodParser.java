@@ -1,7 +1,8 @@
 /*
  * MarkovJumpsTreeLikelihoodParser.java
  *
- * Copyright (c) 2002-2016 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodelxml.treelikelihood;
@@ -64,6 +66,7 @@ public class MarkovJumpsTreeLikelihoodParser extends AncestralStateTreeLikelihoo
     public static final String COMPACT_HISTORY = "compactHistory";
     public static final String NUMBER_OF_SIMULANTS = "numberOfSimulants";
     public static final String REPORT_UNCONDITIONED_COLUMNS = "reportUnconditionedValues";
+    private static final String ALLOW_COMPRESSED_SITES = "allowCompressedSites";
 
 
     public String getParserName() {
@@ -95,9 +98,9 @@ public class MarkovJumpsTreeLikelihoodParser extends AncestralStateTreeLikelihoo
         boolean reportUnconditionedColumns = xo.getAttribute(REPORT_UNCONDITIONED_COLUMNS, false);
         int nSimulants = xo.getAttribute(NUMBER_OF_SIMULANTS, 1);
 
-//         if (patternList.areUnique()) {
-//             throw new XMLParseException("Markov Jumps reconstruction cannot be used with compressed (unique) patterns.");
-//         }
+        if (patternList.areUnique() && !xo.getAttribute(ALLOW_COMPRESSED_SITES, false)) {
+            throw new XMLParseException("Markov Jumps reconstruction cannot be used with compressed (unique) patterns.");
+        }
 
         MarkovJumpsBeagleTreeLikelihood treeLikelihood = new MarkovJumpsBeagleTreeLikelihood(
                 patternList,
@@ -189,7 +192,7 @@ public class MarkovJumpsTreeLikelihoodParser extends AncestralStateTreeLikelihoo
                             }
                         }
                     } else {
-                        throw new XMLParseException("Markov Jumps register parameter " + registerParameter.getId() + " is of the wrong dimension");
+                        throw new XMLParseException("Markov Jumps register parameter " + registerParameter.getId() + " is of the wrong dimension (" + registerParameter.getDimension() + " vs " + (stateCount * stateCount) + ")");
                     }
                 }
                 if (type == MarkovJumpsType.REWARDS &&
@@ -201,7 +204,7 @@ public class MarkovJumpsTreeLikelihoodParser extends AncestralStateTreeLikelihoo
                             registerParameter.setParameterValueQuietly(j, 1.0);
                         }
                     } else {
-                        throw new XMLParseException("Markov Rewards register parameter " + registerParameter.getId() + " is of the wrong dimension");
+                        throw new XMLParseException("Markov Rewards register parameter " + registerParameter.getId() + " is of the wrong dimension (" + registerParameter.getDimension() + " vs " + stateCount + ")");
                     }
                 }
 
@@ -227,6 +230,7 @@ public class MarkovJumpsTreeLikelihoodParser extends AncestralStateTreeLikelihoo
                     AttributeRule.newBooleanRule(SAVE_HISTORY, true),
                     AttributeRule.newBooleanRule(LOG_HISTORY, true),
                     AttributeRule.newBooleanRule(COMPACT_HISTORY, true),
+                    AttributeRule.newBooleanRule(ALLOW_COMPRESSED_SITES, true),
                     new ElementRule(PARTIALS_RESTRICTION, new XMLSyntaxRule[] {
                             new ElementRule(TaxonList.class),
                             new ElementRule(Parameter.class),

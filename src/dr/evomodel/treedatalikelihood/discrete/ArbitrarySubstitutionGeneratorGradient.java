@@ -1,7 +1,8 @@
 /*
- * HomogeneousSubstitutionParameterGradient.java
+ * ArbitrarySubstitutionGeneratorGradient.java
  *
- * Copyright (c) 2002-2017 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.treedatalikelihood.discrete;
@@ -28,10 +30,8 @@ package dr.evomodel.treedatalikelihood.discrete;
 import dr.evolution.tree.Tree;
 import dr.evolution.tree.TreeTrait;
 import dr.evolution.tree.TreeTraitProvider;
-import dr.evomodel.coalescent.OldGMRFSkyrideLikelihood;
-import dr.evomodel.substmodel.DifferentiableSubstitutionModel;
 import dr.evomodel.substmodel.DifferentialMassProvider;
-import dr.evomodel.substmodel.OldGLMSubstitutionModel;
+import dr.evomodel.substmodel.GlmSubstitutionModel;
 import dr.evomodel.treedatalikelihood.BeagleDataLikelihoodDelegate;
 import dr.evomodel.treedatalikelihood.ProcessSimulation;
 import dr.evomodel.treedatalikelihood.TreeDataLikelihood;
@@ -54,14 +54,14 @@ public class ArbitrarySubstitutionGeneratorGradient implements GradientWrtParame
     private final TreeDataLikelihood treeDataLikelihood;
     private final TreeTrait treeTraitProvider;
     private final Tree tree;
-    private final OldGLMSubstitutionModel substitutionModel;
+    private final GlmSubstitutionModel substitutionModel;
     private final int stateCount;
 
     public ArbitrarySubstitutionGeneratorGradient(String traitName,
                                                   TreeDataLikelihood treeDataLikelihood,
 //                                                  Parameter parameter,
                                                   BeagleDataLikelihoodDelegate likelihoodDelegate,
-                                                  OldGLMSubstitutionModel substitutionModel) {
+                                                  GlmSubstitutionModel substitutionModel) {
 //        this.parameter = parameter;
         this.treeDataLikelihood = treeDataLikelihood;
         this.tree = treeDataLikelihood.getTree();
@@ -99,6 +99,7 @@ public class ArbitrarySubstitutionGeneratorGradient implements GradientWrtParame
                     likelihoodDelegate,
                     treeDataLikelihood.getBranchRateModel(),
                     branchDifferentialMassProvider);
+            
             TreeTraitProvider traitProvider = new ProcessSimulation(treeDataLikelihood, gradientDelegate);
             treeDataLikelihood.addTraits(traitProvider.getTreeTraits());
         }

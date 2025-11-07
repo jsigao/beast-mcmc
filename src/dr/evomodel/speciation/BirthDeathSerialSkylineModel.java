@@ -1,7 +1,8 @@
 /*
  * BirthDeathSerialSkylineModel.java
  *
- * Copyright (c) 2002-2015 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.speciation;
@@ -370,11 +372,6 @@ public class BirthDeathSerialSkylineModel extends SpeciationModel {
     public double calculateTreeLogLikelihood(Tree tree, Set<Taxon> exclude) {
         if (exclude.size() == 0) return calculateTreeLogLikelihood(tree);
         throw new RuntimeException("Not implemented!");
-    }
-
-    @Override
-    public double getNodeGradient(Tree tree, NodeRef node) {
-        throw new RuntimeException("Not yet implemented!");
     }
 
     public static void main(String[] args) throws IOException, Importer.ImportException {

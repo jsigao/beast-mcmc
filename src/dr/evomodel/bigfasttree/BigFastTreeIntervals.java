@@ -1,23 +1,61 @@
+/*
+ * BigFastTreeIntervals.java
+ *
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
+ *
+ * This file is part of BEAST.
+ * See the NOTICE file distributed with this work for additional
+ * information regarding copyright ownership and licensing.
+ *
+ * BEAST is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ *  BEAST is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with BEAST; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA  02110-1301  USA
+ *
+ */
+
 package dr.evomodel.bigfasttree;
 
-import dr.evolution.coalescent.IntervalList;
 import dr.evolution.coalescent.IntervalType;
+import dr.evolution.coalescent.TreeIntervalList;
 import dr.evolution.tree.NodeRef;
+import dr.evolution.tree.Tree;
 import dr.evolution.util.Units;
+import dr.evomodel.tree.EmpiricalTreeDistributionModel;
 import dr.evomodel.tree.TreeChangedEvent;
 import dr.evomodel.tree.TreeModel;
 import dr.inference.model.AbstractModel;
 import dr.inference.model.Model;
 import dr.inference.model.Variable;
+import dr.util.ComparableDouble;
+import dr.util.HeapSort;
+
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
-public class BigFastTreeIntervals extends AbstractModel implements Units, IntervalList {
+/**
+ * Smart intervals that don't need a full recalculation. 
+ * author: JT
+ */
+public class BigFastTreeIntervals extends AbstractModel implements Units, TreeIntervalList {
     public BigFastTreeIntervals(TreeModel tree) {
-        super("bigFastIntervals");
+        this("bigFastIntervals",tree);
+    }
+    public BigFastTreeIntervals(String name, TreeModel tree) {
+        super(name);
         int maxEventCount = tree.getNodeCount();
 
         this.tree = tree;
@@ -38,6 +76,7 @@ public class BigFastTreeIntervals extends AbstractModel implements Units, Interv
 
     public void makeDirty() {
         dirty = true;
+        intervalsKnown=false;
     }
 
     @Override
@@ -68,6 +107,13 @@ public class BigFastTreeIntervals extends AbstractModel implements Units, Interv
             calculateIntervals();
         }
         return events.getInterval(i + 1);
+    }
+
+    public int getIntervalIndexForNode(int nodeNum) {
+        if (!intervalsKnown) {
+            calculateIntervals();
+        }
+        return events.getNodePosition(nodeNum);
     }
 
     @Override
@@ -124,6 +170,138 @@ public class BigFastTreeIntervals extends AbstractModel implements Units, Interv
         return true;
     }
 
+    // Interval Node mapping
+
+    @Override
+    /**
+     *
+     * @param nodeNumber the node number
+     * @return int[] of interval indices for which the node is a member.
+     *
+     * If the node is the most recent tip or root it is only
+     * present in one interval and so the array only has one entry. But there might be better ways to communicate that fact.
+     *
+     * In this interval implementation there is always 1 more node than interval.
+     * The 0th node is the start of the 0th interval. The index 1 node ends the index 0 interval and begins the index 1
+     * interval.
+     * The last node (the root) ends the last interval.
+     *
+     *
+     * Nodes:           4 ------- 3 ------- 2 ------- 1 ------- 0
+     * Intervals:            3         2         1         0
+     *IntervalsForNode: [3]     [2,3]     [1,2]     [0,1]       [0]
+     */
+    public int[] getIntervalsForNode(int nodeNumber) {
+        if(!intervalsKnown){
+            calculateIntervals();
+        }
+        int first=-1;
+        int second=-1;
+
+        int order = this.events.getNodePosition(nodeNumber); // the index of the node when sorted by height.
+        if(order>0){
+            first = order-1; // the interval that ends in this node
+            if(order<this.intervalCount){
+                second=order;//interval that begins with this node
+            }
+        }else{
+            first=0;
+        }
+        int[] intervals;
+        if(second==-1){ // this true if order ==0 or if order>0 && order == interval count (this is the last node)
+            intervals=new int[1];
+            intervals[0]=first;
+        }else{
+            intervals=new int[2];
+            intervals[0]=first;
+            intervals[1]=second;
+        }
+
+        return intervals;
+    }
+
+    @Override
+    public int[] getNodeNumbersForInterval(int i) {
+        if (!intervalsKnown) {
+            calculateIntervals();
+        }
+        int[] nodes =new int[2];
+        nodes[0] = events.getNode(i);
+        nodes[1] = events.getNode(i + 1);
+        return nodes;
+    }
+
+    @Override
+    public boolean isBuildIntervalNodeMapping() {
+        return true;
+    }
+
+//    @Override
+//    public void setBuildIntervalNodeMapping(boolean buildIntervalNodeMapping) {
+//        // nothing done this is done by default with this tree model
+//    }
+
+    @Override
+    public NodeRef getCoalescentNode(int interval) {
+        if(!intervalsKnown){
+            calculateIntervals();
+        }
+        if (events.getType(interval+1) != IntervalType.COALESCENT){
+            throw new IllegalArgumentException("interval is not a coalescent interval");
+        }
+        return tree.getNode(events.getNode(interval + 1));
+    }
+
+    public NodeRef getSamplingNode(int interval) {
+        if (!intervalsKnown) {
+            calculateIntervals();
+        }
+        if (events.getType(interval + 1) != IntervalType.SAMPLE) {
+            throw new IllegalArgumentException("interval is not a sampling interval");
+        }
+        return tree.getNode(events.getNode(interval + 1));
+    }
+
+    @Override
+    //Sort array by node order in tree I think. Taken from oldAbstract likelihood.
+    //TODO leverage the fact that we already know the order mapping
+
+    public double[] sortByNodeNumbers(double[] byIntervalOrder) {
+        if(!intervalsKnown){
+            calculateIntervals();
+        }
+        double[] sortedValues = new double[byIntervalOrder.length];
+        int[] nodeIndices = new int[byIntervalOrder.length];
+        ArrayList<ComparableDouble> mappedIntervals = new ArrayList<ComparableDouble>();
+        for (int i = 0; i < nodeIndices.length; i++) {
+            mappedIntervals.add(new ComparableDouble(getIntervalsForNode(i + tree.getExternalNodeCount())[0]));
+        }
+        HeapSort.sort(mappedIntervals, nodeIndices);
+        for (int i = 0; i < nodeIndices.length; i++) {
+            sortedValues[nodeIndices[i]] = byIntervalOrder[i];
+        }
+        return sortedValues;
+    }
+
+
+    @Override
+    public double[] getCoalescentIntervals() {
+        double[] coalIntervals = new double[tree.getInternalNodeCount()];
+        int currentIndex = 0;
+        for (int i = 0; i < this.intervalCount; i++) {
+            if (this.getIntervalType(i)==IntervalType.COALESCENT) {
+                coalIntervals[currentIndex] = this.getInterval(i);
+                currentIndex+=1;
+            }
+        }
+        return coalIntervals;
+    }
+
+    @Override
+    public Tree getTree() {
+        return this.tree;
+    }
+
     @Override
     public void calculateIntervals() {
         //If dirty we rebuild the evens and sort them using parallel sort
@@ -132,8 +310,19 @@ public class BigFastTreeIntervals extends AbstractModel implements Units, Interv
             // will this update the tree nodes?
 
             NodeRef[] nodes = new NodeRef[tree.getNodeCount()];
-            System.arraycopy(tree.getNodes(), 0, nodes, 0, tree.getNodeCount());
-            Arrays.parallelSort(nodes, (a, b) -> Double.compare(tree.getNodeHeight(a), tree.getNodeHeight(b)));
+
+            if (tree instanceof EmpiricalTreeDistributionModel) {
+                for (int i = 0; i < tree.getNodeCount(); ++i) {
+                    nodes[i] = tree.getNode(i);
+                }
+            } else {
+                System.arraycopy(tree.getNodes(), 0, nodes, 0, tree.getNodeCount());
+            }
+            Arrays.parallelSort(nodes, (a, b) -> {
+                if (tree.getNodeHeight(a) == tree.getNodeHeight(b)) return Boolean.compare(tree.isRoot(a), tree.isRoot(b));
+                else
+                    return Double.compare(tree.getNodeHeight(a), tree.getNodeHeight(b));
+            });
 
             intervalCount = nodes.length - 1;
 
@@ -212,6 +401,7 @@ public class BigFastTreeIntervals extends AbstractModel implements Units, Interv
                 } else if (treeChangedEvent.isTreeChanged()) {
                     if (!treeChangedEvent.isNodeOrderChanged()) {
                         onlyUpdateTimes = true;
+                        intervalsKnown=false;
                     } else {
                         // Full tree events result in a complete updating of the tree likelihood
                         // This event type is now used for EmpiricalTreeDistributions.
@@ -224,7 +414,7 @@ public class BigFastTreeIntervals extends AbstractModel implements Units, Interv
                 //System.err.println("Another tree event has occured (possibly a trait change).");
             }
 
-            fireModelChanged();
+            fireModelChanged(object);
         }
     }
 
@@ -261,69 +451,28 @@ public class BigFastTreeIntervals extends AbstractModel implements Units, Interv
 
     }
 
-    /**
-     * A private data class for sorting events on a full recalculation
-     * keeps the time, node number and type of event all in one place.
-     */
-    private class Event implements Comparable<Event> {
-
-        public int compareTo(Event e) {
-            double t = e.time;
-            if (t < time) {
-                return 1;
-            } else if (t > time) {
-                return -1;
-            } else {
-                // events are at exact same time so sort by type
-                return type.compareTo(e.type);
-            }
-        }
-
-        Event(double time, IntervalType type, int node, double interval, int lineageCount) {
-            this.time = time;
-            this.type = type;
-            this.node = node;
-            this.interval = interval;
-            this.lineageCount = lineageCount;
-//            this.info = info;
-        }
-
-        /* The type of event
-         */
-        final IntervalType type;
-
-        /**
-         * The time of the event
-         */
-        final double time;
-        final double interval;
-        final int lineageCount;
-
-        /**
-         * Some extra information for the event (e.g., destination of a migration)
-         */
-//        final int info;
-
-        final int node;
-    }
 
     /**
      * A private classs that wraps an array of events and provides some a higher level api for updated an event when
      * the associated node's height changes.
      */
-    private class Events {
+    protected class Events {
 
         public Events(int numberOfEvents) {
             nodes = new int[numberOfEvents];
             nodeOrder = new int[numberOfEvents];
             lineageCounts = new int[numberOfEvents];
-            intervals = new double[numberOfEvents];
+            intervals = new double[numberOfEvents]; //TODO number of events-1? right now indexing magic done in getters
             times = new double[numberOfEvents];
             intervalTypes = new IntervalType[numberOfEvents];
             this.numberOfEvents = numberOfEvents;
         }
 
-
+        /**
+         * returns the position of the node when sorted by time
+         * @param nodeNum
+         * @return
+         */
         public int getNodePosition(int nodeNum) {
             return nodeOrder[nodeNum];
         }
@@ -332,6 +481,11 @@ public class BigFastTreeIntervals extends AbstractModel implements Units, Interv
             return intervalTypes[i];
         }
 
+        /**
+         * Returns the start time of the ith interval
+         * @param i
+         * @return
+         */
         public double getTime(int i) {
             return times[i];
         }
@@ -407,7 +561,7 @@ public class BigFastTreeIntervals extends AbstractModel implements Units, Interv
                     int difference = intervalTypes[newPosition - 1] == IntervalType.COALESCENT ? -1 : 1;
                     if (newPosition > oldPostion) {
                         for (int i = oldPostion; i < newPosition; i++) {
-                             lineageCounts[i]++;
+                            lineageCounts[i]++;
                         }
                         lineageCounts[newPosition] = lineageCounts[newPosition - 1] + difference;
                         // need to increment the lineage counts by 1
@@ -528,8 +682,9 @@ public class BigFastTreeIntervals extends AbstractModel implements Units, Interv
             nodeOrder[nodeNum] = position;
         }
 
-
+        //The nodes ordered by time
         private final int[] nodes;
+        // the index of each node in the nodes array
         private final int[] nodeOrder;
         private final int[] lineageCounts;
         private final double[] intervals;
@@ -540,22 +695,21 @@ public class BigFastTreeIntervals extends AbstractModel implements Units, Interv
 
     }
 
-    private final Events events;
+    protected final Events events;
     private final Events storedEvents;
 
-    private List<Integer> updatedNodes;
+    protected List<Integer> updatedNodes;
     private List<Integer> storedUpdatedNodes;
 
-    private boolean intervalsKnown;
+    protected boolean intervalsKnown;
     private boolean storedIntervalsKnown;
 
-    private boolean onlyUpdateTimes;
+    protected boolean onlyUpdateTimes;
     private boolean storedOnlyUpdateTimes;
 
     private final TreeModel tree;
-    private boolean dirty;
+    protected boolean dirty;
     private int intervalCount = 0;
 
 
 }
-

@@ -1,10 +1,40 @@
+/*
+ * IntegratedLoadingsGradientParser.java
+ *
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
+ *
+ * This file is part of BEAST.
+ * See the NOTICE file distributed with this work for additional
+ * information regarding copyright ownership and licensing.
+ *
+ * BEAST is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ *  BEAST is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with BEAST; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA  02110-1301  USA
+ *
+ */
+
 package dr.evomodelxml.continuous.hmc;
 
 import dr.evomodel.continuous.hmc.IntegratedLoadingsGradient;
 import dr.evomodel.treedatalikelihood.DataLikelihoodDelegate;
 import dr.evomodel.treedatalikelihood.TreeDataLikelihood;
 import dr.evomodel.treedatalikelihood.continuous.ContinuousDataLikelihoodDelegate;
+import dr.evomodel.treedatalikelihood.continuous.ContinuousTraitPartialsProvider;
 import dr.evomodel.treedatalikelihood.continuous.IntegratedFactorAnalysisLikelihood;
+import dr.evomodel.treedatalikelihood.continuous.JointPartialsProvider;
+import dr.inference.model.CompoundParameter;
 import dr.util.TaskPool;
 import dr.xml.*;
 
@@ -68,30 +98,54 @@ public class IntegratedLoadingsGradientParser extends AbstractXMLObjectParser {
                     "=\"" + PARALLEL + "\" or remove the " + TaskPoolParser.TASK_PARSER_NAME + " element.");
         }
 
+        ContinuousTraitPartialsProvider partialsProvider = (JointPartialsProvider) xo.getChild(JointPartialsProvider.class);
+        if (partialsProvider == null) partialsProvider = factorAnalysis;
+
+        // for IntegratedLoadingsAndPrecisionGradient
+        CompoundParameter parameter = (CompoundParameter) xo.getChild(CompoundParameter.class);
+        if (parameter != null) {
+            if (parameter.getParameterCount() != 2) {
+                throw new XMLParseException("The parameter must have two elements, " +
+                        "the first being the loadings matrix and the second being the precision matrix.");
+            }
+            if (parameter.getParameter(0) != factorAnalysis.getLoadings()) {
+                throw new XMLParseException("The first element of the parameter must be the loadings matrix.");
+            }
+            if (parameter.getParameter(1) != factorAnalysis.getPrecision()) {
+                throw new XMLParseException("The second element of the parameter must be the precision matrix.");
+            }
+        }
+
+
         // TODO Check dimensions, parameters, etc.
 
         return factory(
                 treeDataLikelihood,
                 continuousDataLikelihoodDelegate,
                 factorAnalysis,
+                partialsProvider,
                 taskPool,
                 threadProvider,
-                remainderCompProvider);
+                remainderCompProvider,
+                parameter);
 
     }
 
     protected IntegratedLoadingsGradient factory(TreeDataLikelihood treeDataLikelihood,
                                                  ContinuousDataLikelihoodDelegate likelihoodDelegate,
                                                  IntegratedFactorAnalysisLikelihood factorAnalysisLikelihood,
+                                                 ContinuousTraitPartialsProvider jointPartialsProvider,
                                                  TaskPool taskPool,
                                                  IntegratedLoadingsGradient.ThreadUseProvider threadUseProvider,
-                                                 IntegratedLoadingsGradient.RemainderCompProvider remainderCompProvider)
+                                                 IntegratedLoadingsGradient.RemainderCompProvider remainderCompProvider,
+                                                 CompoundParameter parameter)
             throws XMLParseException {
 
         return new IntegratedLoadingsGradient(
                 treeDataLikelihood,
                 likelihoodDelegate,
                 factorAnalysisLikelihood,
+                jointPartialsProvider,
                 taskPool,
                 threadUseProvider,
                 remainderCompProvider);
@@ -123,7 +177,8 @@ public class IntegratedLoadingsGradientParser extends AbstractXMLObjectParser {
             new ElementRule(TreeDataLikelihood.class),
             new ElementRule(TaskPool.class, true),
             AttributeRule.newStringRule(THREAD_TYPE, true),
-            AttributeRule.newStringRule(REMAINDER_COMPUTATION, true)
+            AttributeRule.newStringRule(REMAINDER_COMPUTATION, true),
+            new ElementRule(JointPartialsProvider.class, true)
 
     };
 }

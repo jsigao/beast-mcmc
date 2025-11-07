@@ -1,7 +1,8 @@
 /*
  * AbstractMultivariateTraitLikelihood.java
  *
- * Copyright (c) 2002-2013 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.continuous;
@@ -46,7 +48,8 @@ import dr.xml.*;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -349,6 +352,7 @@ public abstract class AbstractMultivariateTraitLikelihood extends AbstractModelL
             final int dim = driftModels.size();
             double[] drift = new double[dim];
             double realTimeBranchLength = treeModel.getBranchLength(node);
+            realTimeBranchLength = rescaleLength(realTimeBranchLength); // Drift should be normalized if tree is normalized
             for (int i = 0; i < dim; ++i) {
                 drift[i] = driftModels.get(i).getBranchRate(treeModel, node) * realTimeBranchLength;
             }

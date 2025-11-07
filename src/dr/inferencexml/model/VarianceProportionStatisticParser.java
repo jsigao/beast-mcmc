@@ -1,7 +1,8 @@
 /*
  * VarianceProportionStatisticParser.java
  *
- * Copyright (c) 2002-2020 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.inferencexml.model;
@@ -29,11 +31,9 @@ import dr.evolution.tree.Tree;
 import dr.evomodel.continuous.MultivariateDiffusionModel;
 import dr.evomodel.tree.TreeModel;
 import dr.evomodel.treedatalikelihood.TreeDataLikelihood;
-import dr.evomodel.treedatalikelihood.continuous.ContinuousDataLikelihoodDelegate;
-import dr.evomodel.treedatalikelihood.continuous.ContinuousTraitPartialsProvider;
-import dr.evomodel.treedatalikelihood.continuous.RepeatedMeasuresTraitDataModel;
-import dr.evomodel.treedatalikelihood.continuous.TreeScaledRepeatedMeasuresTraitDataModel;
+import dr.evomodel.treedatalikelihood.continuous.*;
 import dr.evomodelxml.treedatalikelihood.ContinuousDataLikelihoodParser;
+import dr.evomodelxml.treedatalikelihood.continuous.RepeatedMeasuresTraitDataModelParser;
 import dr.inference.model.VarianceProportionStatistic;
 import dr.inference.model.VarianceProportionStatisticEmpirical;
 import dr.inference.model.VarianceProportionStatisticPopulation;
@@ -65,7 +65,7 @@ public class VarianceProportionStatisticParser extends AbstractXMLObjectParser {
         if (!(dataModel instanceof RepeatedMeasuresTraitDataModel)) {
             throw new RuntimeException(
                     "In " + PARSER_NAME + ": " +
-                            "The provided likelihood does not have a " + RepeatedMeasuresTraitDataModel.REPEATED_MEASURES_MODEL + " element." +
+                            "The provided likelihood does not have a " + RepeatedMeasuresTraitDataModelParser.REPEATED_MEASURES_MODEL + " element." +
                             "VarianceProportionStatistic is only implemented for repeated measures.");
         }
 

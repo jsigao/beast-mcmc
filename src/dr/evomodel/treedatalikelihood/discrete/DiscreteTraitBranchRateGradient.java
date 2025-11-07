@@ -1,7 +1,8 @@
 /*
  * DiscreteTraitBranchRateGradient.java
  *
- * Copyright (c) 2002-2020 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 package dr.evomodel.treedatalikelihood.discrete;
@@ -61,7 +63,7 @@ public class DiscreteTraitBranchRateGradient
         implements GradientWrtParameterProvider, HessianWrtParameterProvider, Reportable, Loggable, Citable {
 
     protected final TreeDataLikelihood treeDataLikelihood;
-    private final TreeTrait treeTraitProvider;
+    protected final TreeTrait treeTraitProvider;
     protected final Tree tree;
     protected final boolean useHessian;
     protected final Parameter rateParameter;
@@ -85,13 +87,11 @@ public class DiscreteTraitBranchRateGradient
         BranchRateModel brm = treeDataLikelihood.getBranchRateModel();
         this.branchRateModel = (brm instanceof DifferentiableBranchRates) ? (DifferentiableBranchRates) brm : null;
 
-        String name = DiscreteTraitBranchRateDelegate.getName(traitName);
+        String name = getTraitName(traitName);
         TreeTrait test = treeDataLikelihood.getTreeTrait(name);
 
         if (test == null) {
-            ProcessSimulationDelegate gradientDelegate = new DiscreteTraitBranchRateDelegate(traitName,
-                    treeDataLikelihood.getTree(),
-                    likelihoodDelegate);
+            ProcessSimulationDelegate gradientDelegate = makeGradientDelegate(traitName, tree, likelihoodDelegate);
             TreeTraitProvider traitProvider = new ProcessSimulation(treeDataLikelihood, gradientDelegate);
             treeDataLikelihood.addTraits(traitProvider.getTreeTraits());
         }
@@ -104,6 +104,16 @@ public class DiscreteTraitBranchRateGradient
             throw new RuntimeException("Not yet implemented for >1 traits");
         }
 //        dim = treeDataLikelihood.getDataLikelihoodDelegate().getTraitDim();
+    }
+
+    protected String getTraitName(String traitName) {
+        return DiscreteTraitBranchRateDelegate.getName(null);
+    }
+
+    protected ProcessSimulationDelegate makeGradientDelegate(String traitName, Tree tree, BeagleDataLikelihoodDelegate likelihoodDelegate) {
+        return new DiscreteTraitBranchRateDelegate(traitName,
+                tree,
+                likelihoodDelegate);
     }
 
     @Override
@@ -169,7 +179,8 @@ public class DiscreteTraitBranchRateGradient
             if (!tree.isRoot(node)) {
                 final int destinationIndex = getParameterIndexFromNode(node);
                 final double nodeResult = gradient[v] * getChainGradient(tree, node);
-                result[destinationIndex] = nodeResult;
+                result[destinationIndex] = nodeResult; //TODO: XJ thinks destinationIndex == v here.
+                result[v] = nodeResult;
                 v++;
             }
         }

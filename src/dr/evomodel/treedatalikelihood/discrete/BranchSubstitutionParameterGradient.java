@@ -1,7 +1,8 @@
 /*
- * DiscreteTraitBranchSubstitutionParameterGradient.java
+ * BranchSubstitutionParameterGradient.java
  *
- * Copyright (c) 2002-2017 Alexei Drummond, Andrew Rambaut and Marc Suchard
+ * Copyright © 2002-2024 the BEAST Development Team
+ * http://beast.community/about
  *
  * This file is part of BEAST.
  * See the NOTICE file distributed with this work for additional
@@ -21,6 +22,7 @@
  * License along with BEAST; if not, write to the
  * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
  * Boston, MA  02110-1301  USA
+ *
  */
 
 
@@ -96,6 +98,8 @@ public class BranchSubstitutionParameterGradient
 
             BranchSpecificSubstitutionParameterBranchModel branchModel = (BranchSpecificSubstitutionParameterBranchModel) likelihoodDelegate.getBranchModel();
 
+            DifferentialMassProvider.Mode mode = DifferentialMassProvider.Mode.EXACT;
+
             List<DifferentialMassProvider> differentialMassProviderList = new ArrayList<>();
             for (int i = 0; i < tree.getNodeCount(); ++i) {
                 NodeRef node = tree.getNode(i);
@@ -103,7 +107,8 @@ public class BranchSubstitutionParameterGradient
                     DifferentiableSubstitutionModel substitutionModel = (DifferentiableSubstitutionModel) branchModel.getSubstitutionModel(node);
                     Parameter parameter = branchParameter.getParameter(node.getNumber());
                     DifferentialMassProvider.DifferentialWrapper.WrtParameter wrtParameter = substitutionModel.factory(parameter, dim);
-                    differentialMassProviderList.add(new DifferentialMassProvider.DifferentialWrapper(substitutionModel, wrtParameter));
+                    differentialMassProviderList.add(new DifferentialMassProvider.DifferentialWrapper(
+                            substitutionModel, wrtParameter, mode));
                 }
             }
 
@@ -117,6 +122,7 @@ public class BranchSubstitutionParameterGradient
                     likelihoodDelegate,
                     treeDataLikelihood.getBranchRateModel(),
                     branchDifferentialMassProvider);
+            
             TreeTraitProvider traitProvider = new ProcessSimulation(treeDataLikelihood, gradientDelegate);
             treeDataLikelihood.addTraits(traitProvider.getTreeTraits());
         }
@@ -158,9 +164,14 @@ public class BranchSubstitutionParameterGradient
 
     @Override
     public double[] getGradientLogDensity() {
+        if (COUNT_TOTAL_OPERATIONS) {
+            ++getGradientLogDensityCount;
+        }
+
         double[] result = new double[getDimension()];
 
         double[] gradient = (double[]) treeTraitProvider.getTrait(tree, null);
+
 
         for (int i = 0; i < tree.getNodeCount(); ++i) {
             NodeRef node = tree.getNode(i);
@@ -172,11 +183,9 @@ public class BranchSubstitutionParameterGradient
             // TODO Handle root node at most point
         }
 
-        if (COUNT_TOTAL_OPERATIONS) {
-            ++getGradientLogDensityCount;
-        }
+        // TODO Ideally move all chain-ruling into branchRateModel (except branchLengths?)
+        return branchRateModel.updateGradientLogDensity(result, null, 0, gradient.length);
 
-        return result;
     }
 
     protected double getChainGradient(Tree tree, NodeRef node) {
