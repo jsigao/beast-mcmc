@@ -255,6 +255,9 @@ public class CladeKey {
     }
 
     public boolean equals(Object obj) {
+        if (!(obj instanceof CladeKey))
+            return false;
+
         CladeKey key = (CladeKey)obj;
 
         if (wordsInUse != key.wordsInUse)
