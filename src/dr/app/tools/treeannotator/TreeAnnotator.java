@@ -440,7 +440,9 @@ public class TreeAnnotator extends BaseTreeTool {
                     if (THREADED_READING) {
                         futures.add(pool.submit(() -> {
                             cladeSystem.collectCladeHeights(tree);
-                            rootHeights.add(tree.getNodeHeight(tree.getRoot()));
+                            synchronized (rootHeights) {
+                                rootHeights.add(tree.getNodeHeight(tree.getRoot()));
+                            }
                             cladeSystem.traverseTree(tree, collectionAction);
                         }));
                     } else {

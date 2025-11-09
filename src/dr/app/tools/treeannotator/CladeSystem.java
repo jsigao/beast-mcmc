@@ -144,8 +144,12 @@ public final class CladeSystem {
             }
 
             if (keepParents) {
-                clade1.addParent(clade);
-                clade2.addParent(clade);
+                synchronized (clade1) {
+                    clade1.addParent(clade);
+                }
+                synchronized (clade2) {
+                    clade2.addParent(clade);
+                }
             }
         }
         assert clade != null;

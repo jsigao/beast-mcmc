@@ -165,8 +165,12 @@ class BiClade implements Clade {
         return heightValues;
     }
     public void addChildHeightValues(double leftHeight, double rightHeight) {
-        leftHeightValues.add(leftHeight);
-        rightHeightValues.add(rightHeight);
+        synchronized (leftHeightValues) {
+            leftHeightValues.add(leftHeight);
+        }
+        synchronized (rightHeightValues) {
+            rightHeightValues.add(rightHeight);
+        }
     }
 
     public List<Double> getLeftHeightValues() {
