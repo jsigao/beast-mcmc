@@ -131,6 +131,7 @@ public class TreeAnnotator extends BaseTreeTool {
                          final int countLimit,
                          final double[] hpd2D,
                          final boolean computeESS,
+                         final boolean topologyOnly,
                          final int threadCount,
                          final Target targetOption,
                          final String targetTreeFileName,
@@ -235,9 +236,14 @@ public class TreeAnnotator extends BaseTreeTool {
             progressStream.println();
         }
 
-        collectNodeAttributes(cladeSystem, inputFileName, burnin);
+        if (!topologyOnly) {
+            collectNodeAttributes(cladeSystem, inputFileName, burnin);
 
-        annotateTargetTree(cladeSystem, heightsOption, countLimit, targetTree);
+            annotateTargetTree(cladeSystem, heightsOption, countLimit, targetTree);
+        } else {
+            progressStream.println("Skipping annotation (topology only mode)...");
+            progressStream.println();
+        }
 
         writeAnnotatedTree(outputFileName, targetTree);
 
@@ -898,6 +904,7 @@ public class TreeAnnotator extends BaseTreeTool {
 
         boolean forceIntegerToDiscrete = false;
         boolean computeESS = false;
+        boolean topologyOnly = false;
 
         if (args.length == 0) {
             System.setProperty("com.apple.macos.useScreenMenuBar", "true");
@@ -972,6 +979,7 @@ public class TreeAnnotator extends BaseTreeTool {
                         5,
                         hpd2D,
                         computeESS,
+                        topologyOnly,
                         -1,
                         targetOption,
                         targetTreeFileName,
@@ -1012,7 +1020,8 @@ public class TreeAnnotator extends BaseTreeTool {
                         new Arguments.Option("help", "option to print this message"),
                         new Arguments.Option("forceDiscrete", "forces integer traits to be treated as discrete traits."),
                         new Arguments.StringOption("hpd2D", "the HPD interval to be used for the bivariate traits", "specifies a (vector of comma separated) HPD proportion(s)"),
-                        new Arguments.Option("ess", "compute ess for branch parameters")
+                        new Arguments.Option("ess", "compute ess for branch parameters"),
+                        new Arguments.Option("topologyOnly", "generate the summary tree without annotation")
                 });
 
         try {
@@ -1063,6 +1072,11 @@ public class TreeAnnotator extends BaseTreeTool {
             } else {
                 throw new RuntimeException("Specify burnin as states to use 'ess' option.");
             }
+        }
+
+        if (arguments.hasOption("topologyOnly")) {
+            progressStream.println(" Topology only mode - skipping annotation.");
+            topologyOnly = true;
         }
 
         double posteriorLimit = 0.0;
@@ -1142,6 +1156,7 @@ public class TreeAnnotator extends BaseTreeTool {
                 countLimit,
                 hpd2D,
                 computeESS,
+                topologyOnly,
                 threadCount,
                 target,
                 targetTreeFileName,
