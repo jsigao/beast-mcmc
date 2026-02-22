@@ -40,6 +40,7 @@ import dr.evomodel.substmodel.SubstitutionModel;
 import dr.evomodel.tree.TreeModel;
 import dr.evomodel.tipstatesmodel.TipStatesModel;
 import dr.evomodel.tree.TreeModel;
+import dr.evomodel.treedatalikelihood.TipStateAccessor;
 import dr.inference.model.Model;
 import dr.inference.model.Parameter;
 import dr.inference.markovjumps.MarkovJumpsCore;
@@ -56,7 +57,8 @@ import java.util.*;
  * @author Andrew Rambaut
  */
 
-public class AncestralStateBeagleTreeLikelihood extends BeagleTreeLikelihood implements TreeTraitProvider, AncestralStateTraitProvider {
+public class AncestralStateBeagleTreeLikelihood extends BeagleTreeLikelihood implements
+        TreeTraitProvider, AncestralStateTraitProvider, TipStateAccessor {
 //    public AncestralStateBeagleTreeLikelihood(PatternList patternList, TreeModel treeModel,
 //                                              BranchSubstitutionModel branchSubstitutionModel, SiteRateModel siteRateModel,
 //                                              BranchRateModel branchRateModel, boolean useAmbiguities,
@@ -518,6 +520,11 @@ public class AncestralStateBeagleTreeLikelihood extends BeagleTreeLikelihood imp
     public void getTipStates(int tipNum, int[] states) {
         // Saved locally to reduce BEAGLE library access
         System.arraycopy(tipStates[tipNum], 0, states, 0, states.length);
+    }
+
+    @Override
+    public int getTipCount() {
+        return tipCount;
     }
 
 //    public int traverseCollectScaleBuffers(TreeModel tree, NodeRef node) {

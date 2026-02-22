@@ -1103,21 +1103,21 @@ public class TreeSummary {
 
         Arguments arguments = new Arguments(
                 new Arguments.Option[]{
-                        new Arguments.LongOption("burnin", "the number of states to be considered as 'burn-in'"),
-                        new Arguments.IntegerOption("burninTrees", "the number of trees to be considered as 'burn-in'"),
-                        new Arguments.Option("clademap", "show states of all clades over chain length"),
-                        new Arguments.Option("cladeAttribute", "show states of the target attribute of all clades over chain length"),
-                        new Arguments.Option("cladeCredibility", "show the log clade credibility score of each tree over chain length"),
-                        new Arguments.RealOption("limit", "the minimum posterior probability for a subtree to be included"),
-                        new Arguments.RealOption("cladeFreqMin", "the minimum posterior probability for a clade to be included"),
-                        new Arguments.RealOption("cladeFreqMax", "clades with posterior probability smaller than this value will be included"),
-                        new Arguments.StringOption("targetAttribute", "target_attribute", "the attribute to log"),
-                        new Arguments.Option("excludeTips", "exclude tips in clades"),
-                        new Arguments.Option("excludeRoot", "exclude the root in clades"),
-                        new Arguments.Option("cladeOnly", "only generate clade report but not their states across the chain"),
-                        new Arguments.Option("tipId", "output tip indices instead of tip labels in the clade report"),
-                        new Arguments.StringOption("cladeFile", "clade file name", "path to file containing the clades to include"),
-                        new Arguments.Option("help", "option to print this message")
+                        new Arguments.LongOption("burnin", "b", "the number of states to be considered as 'burn-in'"),
+                        new Arguments.IntegerOption("burninTrees", "bt", "the number of trees to be considered as 'burn-in'"),
+                        new Arguments.Option("clademap", "cm", "show states of all clades over chain length"),
+                        new Arguments.Option("cladeAttribute", "ca", "show states of the target attribute of all clades over chain length"),
+                        new Arguments.Option("cladeCredibility", "cc", "show the log clade credibility score of each tree over chain length"),
+                        new Arguments.RealOption("limit", "l", "the minimum posterior probability for a subtree to be included"),
+                        new Arguments.RealOption("cladeFreqMin", "cfm", "the minimum posterior probability for a clade to be included"),
+                        new Arguments.RealOption("cladeFreqMax", "cfx", "clades with posterior probability smaller than this value will be included"),
+                        new Arguments.StringOption("targetAttribute", "ta", "target_attribute", "the attribute to log"),
+                        new Arguments.Option("excludeTips", "et", "exclude tips in clades"),
+                        new Arguments.Option("excludeRoot", "er", "exclude the root in clades"),
+                        new Arguments.Option("cladeOnly", "co", "only generate clade report but not their states across the chain"),
+                        new Arguments.Option("tipId", "ti", "output tip indices instead of tip labels in the clade report"),
+                        new Arguments.StringOption("cladeFile", "cf", "clade file name", "path to file containing the clades to include"),
+                        new Arguments.Option("help", "h", "option to print this message")
                 });
 
         try {
