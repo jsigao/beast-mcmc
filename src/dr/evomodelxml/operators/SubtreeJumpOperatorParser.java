@@ -92,7 +92,7 @@ public class SubtreeJumpOperatorParser extends AbstractXMLObjectParser {
     }
 
     public Class getReturnType() {
-        return FixedHeightSubtreePruneRegraftOperator.class;
+        return SubtreeJumpOperator.class;
     }
 
     public XMLSyntaxRule[] getSyntaxRules() {
