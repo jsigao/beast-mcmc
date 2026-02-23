@@ -233,11 +233,13 @@ public class GammaSiteRateModel extends AbstractModel implements SiteRateModel, 
     private void calculateCategoryRates() {
 
         int offset = 0;
+        double propVariable = 1.0;
 
         if (invarParameter != null) {
             categoryRates[0] = 0.0;
             categoryProportions[0] = invarParameter.getParameterValue(0);
             offset = 1;
+            propVariable = 1.0 - categoryProportions[0];
         }
 
         if (shapeParameter != null) {
@@ -249,13 +251,16 @@ public class GammaSiteRateModel extends AbstractModel implements SiteRateModel, 
             } else {
                 setEqualRates(categoryRates, categoryProportions, alpha, gammaCatCount, offset);
             }
-        } else if (offset > 0) {
-            // just the invariant rate and variant rate
-            categoryRates[offset] = 2.0;
-            categoryProportions[offset] = 1.0 - categoryProportions[0];
+
+            if (offset > 0) {
+                for (int i = 0; i < gammaCatCount; i++) {
+                    categoryRates[i + offset] /= propVariable;
+                    categoryProportions[i + offset] *= propVariable;
+                }
+            }
         } else {
-            categoryRates[0] = 1.0;
-            categoryProportions[0] = 1.0;
+            categoryRates[offset] = 1.0 / propVariable;
+            categoryProportions[offset] = propVariable;
         }
 
         if (nuParameter != null) {
@@ -448,7 +453,7 @@ public class GammaSiteRateModel extends AbstractModel implements SiteRateModel, 
             categoryProportions[i + offset] = 1.0;
         }
 
-        normalize(categoryRates, categoryProportions);
+        normalize(categoryRates, categoryProportions, catCount, offset);
     }
 
     /**
@@ -456,18 +461,18 @@ public class GammaSiteRateModel extends AbstractModel implements SiteRateModel, 
      * @param categoryRates
      * @param categoryProportions
      */
-    public static void normalize(double[] categoryRates, double[] categoryProportions) {
+    public static void normalize(double[] categoryRates, double[] categoryProportions, int catCount, int offset) {
         double mean = 0.0;
         double sum = 0.0;
-        for (int i = 0; i < categoryRates.length; i++) {
-            mean += categoryRates[i];
-            sum += categoryProportions[i];
+        for (int i = 0; i < catCount; i++) {
+            mean += categoryRates[i + offset];
+            sum += categoryProportions[i + offset];
         }
-        mean /= categoryRates.length;
+        mean /= catCount;
 
-        for(int i = 0; i < categoryRates.length; i++) {
-            categoryRates[i] /= mean;
-            categoryProportions[i] /= sum;
+        for (int i = 0; i < catCount ; i++) {
+            categoryRates[i + offset] /= mean;
+            categoryProportions[i + offset] /= sum;
         }
     }
 
