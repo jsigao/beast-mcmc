@@ -31,11 +31,14 @@ import dr.evolution.tree.NodeRef;
 import dr.evolution.tree.Tree;
 import dr.evolution.tree.TreeUtils;
 import dr.evomodel.tree.TreeModel;
+import dr.evomodelxml.operators.FixedHeightSubtreePruneRegraftOperatorParser;
 import dr.evomodelxml.operators.SubtreeJumpOperatorParser;
+import dr.inference.loggers.LogColumn;
 import dr.inference.operators.*;
 import dr.math.distributions.NormalDistribution;
 import dr.math.MathUtils;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -47,6 +50,24 @@ public class FixedHeightSubtreePruneRegraftOperator extends AbstractTreeOperator
 
     private final TreeModel tree;
 
+    private int nodeDistance;
+    private double pathLength;
+    private double nodeHeight;
+    private int[] cladeIndices = new int[2];
+    protected boolean logOperatorStat = false;
+
+    private List<Integer> nodeDistanceAccept;
+    private List<Integer> nodeDistanceReject;
+    private List<Double> pathLengthAccept;
+    private List<Double> pathLengthReject;
+    private List<Double> nodeHeightAccept;
+    private List<Double> nodeHeightReject;
+    private List<Integer> cladeIndex0Accept;
+    private List<Integer> cladeIndex0Reject;
+    private List<Integer> cladeIndex1Accept;
+    private List<Integer> cladeIndex1Reject;
+    private List<Long> calculationCountAccept;
+    private List<Long> calculationCountReject;
 
     /**
      * Constructor
@@ -57,6 +78,18 @@ public class FixedHeightSubtreePruneRegraftOperator extends AbstractTreeOperator
         this.tree = tree;
         setWeight(weight);
 
+        nodeDistanceAccept = new ArrayList<Integer>();
+        nodeDistanceReject = new ArrayList<Integer>();
+        pathLengthAccept = new ArrayList<Double>();
+        pathLengthReject = new ArrayList<Double>();
+        nodeHeightAccept = new ArrayList<Double>();
+        nodeHeightReject = new ArrayList<Double>();
+        cladeIndex0Accept = new ArrayList<Integer>();
+        cladeIndex0Reject = new ArrayList<Integer>();
+        cladeIndex1Accept = new ArrayList<Integer>();
+        cladeIndex1Reject = new ArrayList<Integer>();
+        calculationCountAccept = new ArrayList<Long>();
+        calculationCountReject = new ArrayList<Long>();
     }
     /**
      * Do a subtree jump move.
@@ -88,6 +121,16 @@ public class FixedHeightSubtreePruneRegraftOperator extends AbstractTreeOperator
         // get the height of the parent
         double parentHeight = tree.getNodeHeight(iP);
 
+        if (logOperatorStat) {
+            nodeDistance = -1;
+            pathLength = -1;
+            nodeHeight = tree.getNodeHeight(iP);
+            if (logCladeOperated) {
+                cladeIndices[0] = getCladeIdx(tree, i);
+                cladeIndices[1] = -1;
+            }
+        }
+
         // get a list of all edges that intersect this height
         destinations = getIntersectingEdges(tree, parentHeight);
 
@@ -104,6 +147,14 @@ public class FixedHeightSubtreePruneRegraftOperator extends AbstractTreeOperator
 
         final NodeRef j = destinations.get(r);
         final NodeRef jP = tree.getParent(j);
+
+        if (logOperatorStat) {
+            nodeDistance = getNodeDistance(tree, iP, j) - 1;
+            pathLength = TreeUtils.getPathLength(tree, iP, j) + tree.getNodeHeight(j) - tree.getNodeHeight(iP);
+            if (logCladeOperated) {
+                cladeIndices[1] = getCladeIdx(tree, j);
+            }
+        }
 
         tree.beginTreeEdit();
 
@@ -155,5 +206,58 @@ public class FixedHeightSubtreePruneRegraftOperator extends AbstractTreeOperator
 
     public String getOperatorName() {
         return FixedHeightSubtreePruneRegraftOperatorParser.FIXED_HEIGHT_SUBTREE_PRUNE_REGRAFT + "(" + tree.getId() + ")";
+    }
+
+    public void accept(double deviation) {
+        super.accept(deviation);
+
+        if (logOperatorStat) {
+            nodeDistanceAccept.add(nodeDistance);
+            pathLengthAccept.add(pathLength);
+            nodeHeightAccept.add(nodeHeight);
+            if (logCladeOperated) {
+                cladeIndex0Accept.add(cladeIndices[0]);
+                cladeIndex1Accept.add(cladeIndices[1]);
+            }
+            calculationCountAccept.add(calculationCount);
+        }
+    }
+
+    public void reject() {
+        super.reject();
+
+        if (logOperatorStat) {
+            nodeDistanceReject.add(nodeDistance);
+            pathLengthReject.add(pathLength);
+            nodeHeightReject.add(nodeHeight);
+            if (logCladeOperated) {
+                cladeIndex0Reject.add(cladeIndices[0]);
+                cladeIndex1Reject.add(cladeIndices[1]);
+            }
+            calculationCountReject.add(calculationCount);
+        }
+    }
+
+    public LogColumn[] getColumns() {
+        List<LogColumn> columns = new ArrayList<LogColumn>(Arrays.asList(super.getColumns()));
+        logOperatorStat = true;
+
+        columns.add(getOperatorColumnInt("nodeDistAcc", nodeDistanceAccept));
+        columns.add(getOperatorColumnInt("nodeDistRej", nodeDistanceReject));
+        columns.add(getOperatorColumnDouble("pathLengthAcc", pathLengthAccept));
+        columns.add(getOperatorColumnDouble("pathLengthRej", pathLengthReject));
+        columns.add(getOperatorColumnDouble("nodeheightPAcc", nodeHeightAccept));
+        columns.add(getOperatorColumnDouble("nodeheightPRej", nodeHeightReject));
+        if (logCladeOperated) {
+            columns.add(getOperatorColumnInt("cladeId0Acc", cladeIndex0Accept));
+            columns.add(getOperatorColumnInt("cladeId0Rej", cladeIndex0Reject));
+            columns.add(getOperatorColumnInt("cladeId1Acc", cladeIndex1Accept));
+            columns.add(getOperatorColumnInt("cladeId1Rej", cladeIndex1Reject));
+        }
+
+        columns.add(getOperatorColumnLong("calcountAcc", calculationCountAccept));
+        columns.add(getOperatorColumnLong("calcountRej", calculationCountReject));
+
+        return columns.toArray(new LogColumn[columns.size()]);
     }
 }

@@ -153,6 +153,7 @@ public class SubtreeSlideOperator extends AbstractAdaptableTreeOperator {
             nodeDistance = 0;
             if (logCladeOperated) {
                 cladeIndices[0] = getCladeIdx(tree, i);
+                cladeIndices[1] = -1;
             }
         }
 

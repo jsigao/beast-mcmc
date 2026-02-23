@@ -29,17 +29,20 @@ package dr.evomodel.operators;
 
 import dr.evolution.tree.NodeRef;
 import dr.evolution.tree.Tree;
+import dr.evolution.tree.TreeUtils;
 import dr.evolution.util.Taxon;
 import dr.evolution.util.TaxonList;
 import dr.evomodel.tree.TreeModel;
 import dr.evomodelxml.operators.SubtreeLeapOperatorParser;
 import dr.evomodelxml.operators.TipLeapOperatorParser;
 import dr.inference.distribution.CauchyDistribution;
+import dr.inference.loggers.LogColumn;
 import dr.inference.operators.AdaptationMode;
 import dr.math.MathUtils;
 import dr.math.distributions.Distribution;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -98,6 +101,27 @@ public class SubtreeLeapOperator extends AbstractAdaptableTreeOperator {
 
     private final List<Integer> tips;
 
+    private int nodeDistance;
+    private double pathLength;
+    private double[] nodeHeights = new double[2];
+    private int[] cladeIndices = new int[2];
+    protected boolean logOperatorStat = false;
+
+    private List<Integer> nodeDistanceAccept;
+    private List<Integer> nodeDistanceReject;
+    private List<Double> pathLengthAccept;
+    private List<Double> pathLengthReject;
+    private List<Double> nodeHeight0Accept;
+    private List<Double> nodeHeight0Reject;
+    private List<Double> nodeHeight1Accept;
+    private List<Double> nodeHeight1Reject;
+    private List<Integer> cladeIndex0Accept;
+    private List<Integer> cladeIndex0Reject;
+    private List<Integer> cladeIndex1Accept;
+    private List<Integer> cladeIndex1Reject;
+    private List<Long> calculationCountAccept;
+    private List<Long> calculationCountReject;
+
     /**
      * Constructor
      *
@@ -132,6 +156,21 @@ public class SubtreeLeapOperator extends AbstractAdaptableTreeOperator {
         this.distanceKernel = distanceKernel;
         this.slideOnly = slideOnly;
         this.tips = null;
+
+        nodeDistanceAccept = new ArrayList<Integer>();
+        nodeDistanceReject = new ArrayList<Integer>();
+        pathLengthAccept = new ArrayList<Double>();
+        pathLengthReject = new ArrayList<Double>();
+        nodeHeight0Accept = new ArrayList<Double>();
+        nodeHeight0Reject = new ArrayList<Double>();
+        nodeHeight1Accept = new ArrayList<Double>();
+        nodeHeight1Reject = new ArrayList<Double>();
+        cladeIndex0Accept = new ArrayList<Integer>();
+        cladeIndex0Reject = new ArrayList<Integer>();
+        cladeIndex1Accept = new ArrayList<Integer>();
+        cladeIndex1Reject = new ArrayList<Integer>();
+        calculationCountAccept = new ArrayList<Long>();
+        calculationCountReject = new ArrayList<Long>();
     }
 
     /**
@@ -168,6 +207,21 @@ public class SubtreeLeapOperator extends AbstractAdaptableTreeOperator {
                 throw new IllegalArgumentException("Taxon, " + taxon.getId() + ", not found in tree with id " + tree.getId());
             }
         }
+
+        nodeDistanceAccept = new ArrayList<Integer>();
+        nodeDistanceReject = new ArrayList<Integer>();
+        pathLengthAccept = new ArrayList<Double>();
+        pathLengthReject = new ArrayList<Double>();
+        nodeHeight0Accept = new ArrayList<Double>();
+        nodeHeight0Reject = new ArrayList<Double>();
+        nodeHeight1Accept = new ArrayList<Double>();
+        nodeHeight1Reject = new ArrayList<Double>();
+        cladeIndex0Accept = new ArrayList<Integer>();
+        cladeIndex0Reject = new ArrayList<Integer>();
+        cladeIndex1Accept = new ArrayList<Integer>();
+        cladeIndex1Reject = new ArrayList<Integer>();
+        calculationCountAccept = new ArrayList<Long>();
+        calculationCountReject = new ArrayList<Long>();
     }
 
 
@@ -218,6 +272,22 @@ public class SubtreeLeapOperator extends AbstractAdaptableTreeOperator {
         final double newHeight = destinations.get(j);
 
         final NodeRef jParent = tree.getParent(j);
+
+        if (logOperatorStat) {
+            NodeRef ca = TreeUtils.getCommonAncestorNode(tree, parent, j);
+            if (ca == j) {
+                nodeDistance = getNodeDistance(tree, parent, j);
+            } else {
+                nodeDistance = getNodeDistance(tree, parent, j) - 1;
+            }
+            pathLength = delta;
+            nodeHeights[0] = tree.getNodeHeight(parent);
+            nodeHeights[1] = newHeight;
+            if (logCladeOperated) {
+                cladeIndices[0] = getCladeIdx(tree, node);
+                cladeIndices[1] = getCladeIdx(tree, j);
+            }
+        }
 
         if (jParent != null && newHeight > tree.getNodeHeight(jParent)) {
             throw new IllegalArgumentException("height error");
@@ -408,5 +478,63 @@ public class SubtreeLeapOperator extends AbstractAdaptableTreeOperator {
         } else {
             return TipLeapOperatorParser.TIP_LEAP + "(" + tree.getId() + ")";
         }
+    }
+
+    public void accept(double deviation) {
+        super.accept(deviation);
+
+        if (logOperatorStat) {
+            nodeDistanceAccept.add(nodeDistance);
+            pathLengthAccept.add(pathLength);
+            nodeHeight0Accept.add(nodeHeights[0]);
+            nodeHeight1Accept.add(nodeHeights[1]);
+            if (logCladeOperated) {
+                cladeIndex0Accept.add(cladeIndices[0]);
+                cladeIndex1Accept.add(cladeIndices[1]);
+            }
+            calculationCountAccept.add(calculationCount);
+        }
+    }
+
+    public void reject() {
+        super.reject();
+
+        if (logOperatorStat) {
+            nodeDistanceReject.add(nodeDistance);
+            pathLengthReject.add(pathLength);
+            nodeHeight0Reject.add(nodeHeights[0]);
+            nodeHeight1Reject.add(nodeHeights[1]);
+            if (logCladeOperated) {
+                cladeIndex0Reject.add(cladeIndices[0]);
+                cladeIndex1Reject.add(cladeIndices[1]);
+            }
+            calculationCountReject.add(calculationCount);
+        }
+    }
+
+    public LogColumn[] getColumns() {
+        List<LogColumn> columns = new ArrayList<LogColumn>(Arrays.asList(super.getColumns()));
+        logOperatorStat = true;
+
+        columns.add(getOperatorColumnInt("nodeDistAcc", nodeDistanceAccept));
+        columns.add(getOperatorColumnInt("nodeDistRej", nodeDistanceReject));
+        columns.add(getOperatorColumnDouble("pathLengthAcc", pathLengthAccept));
+        columns.add(getOperatorColumnDouble("pathLengthRej", pathLengthReject));
+        columns.add(getOperatorColumnDouble("nodeheightP0Acc", nodeHeight0Accept));
+        columns.add(getOperatorColumnDouble("nodeheightP0Rej", nodeHeight0Reject));
+        columns.add(getOperatorColumnDouble("nodeheightP1Acc", nodeHeight1Accept));
+        columns.add(getOperatorColumnDouble("nodeheightP1Rej", nodeHeight1Reject));
+
+        if (logCladeOperated) {
+            columns.add(getOperatorColumnInt("cladeId0Acc", cladeIndex0Accept));
+            columns.add(getOperatorColumnInt("cladeId0Rej", cladeIndex0Reject));
+            columns.add(getOperatorColumnInt("cladeId1Acc", cladeIndex1Accept));
+            columns.add(getOperatorColumnInt("cladeId1Rej", cladeIndex1Reject));
+        }
+
+        columns.add(getOperatorColumnLong("calcountAcc", calculationCountAccept));
+        columns.add(getOperatorColumnLong("calcountRej", calculationCountReject));
+
+        return columns.toArray(new LogColumn[columns.size()]);
     }
 }
