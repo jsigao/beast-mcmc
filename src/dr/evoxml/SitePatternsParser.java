@@ -60,6 +60,7 @@ public class SitePatternsParser extends AbstractXMLObjectParser {
 
     public static final String CONSTANT_PATTERNS = "constantPatterns";
 
+    public static final String WEIGHT_MULTIPLIER = "weightMultiplier";
 
     public String getParserName() {
         return PATTERNS;
@@ -151,6 +152,14 @@ public class SitePatternsParser extends AbstractXMLObjectParser {
 
         SitePatterns patterns = new SitePatterns(alignment, taxa, from, to, every, strip, constantPatternCounts, compression, ambiguityThreshold);
 
+        double weightMultiplier = xo.getAttribute(WEIGHT_MULTIPLIER, 1.0);
+        if (!Double.isFinite(weightMultiplier) || weightMultiplier <= 0.0) {
+            throw new XMLParseException(WEIGHT_MULTIPLIER + " must be positive and finite.");
+        }
+        if (weightMultiplier != 1.0) {
+            patterns.multiplyPatternWeights(weightMultiplier);
+        }
+
         int f = from + 1;
         int t = to + 1; // fixed a *display* error by adding + 1 for consistency with f = from + 1
         if (to == -1) t = alignment.getSiteCount();
@@ -179,6 +188,10 @@ public class SitePatternsParser extends AbstractXMLObjectParser {
                     break;
             }
             logger.info("  pattern count = " + patterns.getPatternCount());
+
+            if (weightMultiplier != 1.0) {
+                logger.info("  pattern weights multiplied by " + weightMultiplier);
+            }
         }
 
         return patterns;
@@ -205,7 +218,8 @@ public class SitePatternsParser extends AbstractXMLObjectParser {
             AttributeRule.newBooleanRule(UNIQUE, true, "Return a weight list of unique patterns"),
             AttributeRule.newBooleanRule(AMBIGUOUS_UNIQUE, true, "Ignore ambiguity when determining unique patterns"),
             AttributeRule.newBooleanRule(AMBIGUOUS_CONSTANT, true, "Ignore ambiguity when determining unique constant patterns"),
-            AttributeRule.newDoubleRule(AMBIGUITY_THRESHOLD, true, "Threshold max proportion of ambiguous characters to allow compression")
+            AttributeRule.newDoubleRule(AMBIGUITY_THRESHOLD, true, "Threshold max proportion of ambiguous characters to allow compression"),
+            AttributeRule.newDoubleRule(WEIGHT_MULTIPLIER, true, "Multiply every pattern weight by this factor")
     };
 
     public String getParserDescription() {

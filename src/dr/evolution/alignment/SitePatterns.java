@@ -722,6 +722,18 @@ public class SitePatterns implements SiteList, dr.util.XHTMLable {
         return weights;
     }
 
+    public void multiplyPatternWeights(double multiplier) {
+        if (!Double.isFinite(multiplier) || multiplier <= 0.0) {
+            throw new IllegalArgumentException("pattern weight multiplier must be positive and finite.");
+        }
+        if (this instanceof AscertainedSitePatterns) {
+            throw new UnsupportedOperationException("multiplyPatternWeights is not supported for ascertained site patterns");
+        }
+        for (int i = 0; i < weights.length; i++) {
+            weights[i] *= multiplier;
+        }
+    }
+
     /**
      * @return the DataType of this siteList
      */
